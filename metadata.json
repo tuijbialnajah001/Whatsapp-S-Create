@@ -1,0 +1,5 @@
+{
+  "name": "WhatsApp Sticker Creator",
+  "description": "Create WhatsApp sticker packs from images or ZIP files with smart auto-crop.",
+  "requestFramePermissions": []
+}
