@@ -105,7 +105,7 @@ export default function ExploreImages() {
     } catch (e) {}
   }, [images, searchQuery, hasSearched, selectedIds]);
 
-  const fetchDDGImages = async (query: string) => {
+  const fetchImages = async (query: string) => {
     if (!query.trim()) return;
     
     const normalizedQuery = query.trim().toLowerCase();
@@ -184,7 +184,7 @@ export default function ExploreImages() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchDDGImages(searchQuery);
+    fetchImages(searchQuery);
   };
 
   const toggleSelection = (id: string) => {
@@ -324,7 +324,7 @@ export default function ExploreImages() {
           <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Oops! Something went wrong</h3>
           <p className="text-zinc-500 max-w-md">{error}</p>
           <button 
-            onClick={() => fetchDDGImages(searchQuery)} 
+            onClick={() => fetchImages(searchQuery)} 
             className="mt-6 px-8 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full font-bold hover:scale-105 transition-transform"
           >
             Try Again

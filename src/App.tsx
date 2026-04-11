@@ -55,6 +55,15 @@ export default function App() {
           {activeTab === 'create' ? <WhatsappSCreate key="create" /> : <ExploreImages key="explore" />}
         </AnimatePresence>
       </main>
+
+      {/* Footer Branding */}
+      <footer className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+        <div className="glass-panel px-5 py-2.5 rounded-full shadow-lg border border-white/20 dark:border-zinc-800/50 backdrop-blur-md bg-white/70 dark:bg-zinc-900/70">
+          <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wide">
+            Powered by <span className="text-emerald-600 dark:text-emerald-400">𝙱𝙹𝙴 ~ Clan</span>
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

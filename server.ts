@@ -28,123 +28,119 @@ async function startServer() {
   // DuckDuckGo Image Search Proxy Endpoint
   app.get("/api/search", async (req, res) => {
     const query = req.query.q as string;
-    const vqdParam = req.query.vqd as string;
     const nextParam = req.query.next as string;
 
     if (!query) {
       return res.status(400).json({ error: "Query parameter 'q' is required" });
     }
 
-    const PROXIES = [
-      (url: string) => url, // Try direct first
-      (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-      (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`
-    ];
+    const offset = parseInt(nextParam) || 1;
+    let results: any[] = [];
+    let nextOffset = offset + 50;
 
     try {
-      let success = false;
-      let lastError = "";
-      let finalResults: any[] = [];
-      let finalNext = "";
-      let finalVqd = vqdParam || "";
-
-      for (const proxyGen of PROXIES) {
-        try {
-          let vqd = finalVqd;
-          let cookies = "";
-
-          // 1. Fetch VQD if not provided
-          if (!vqd) {
-            const vqdUrl = proxyGen(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`);
-            const vqdResponse = await fetchWithTimeout(vqdUrl, {
-              headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.5"
-              }
-            }, 8000);
-            
-            if (!vqdResponse.ok) {
-              lastError = `Failed to fetch VQD: ${vqdResponse.status}`;
-              continue;
-            }
-
-            const setCookieHeader = vqdResponse.headers.get('set-cookie');
-            cookies = setCookieHeader ? setCookieHeader.split(',').map(c => c.split(';')[0]).join('; ') : '';
-
-            const html = await vqdResponse.text();
-            const vqdMatch = html.match(/vqd=['"]?([^&'"\s]+)['"]?/);
-            vqd = vqdMatch ? vqdMatch[1] : '';
-
-            if (!vqd) {
-              lastError = "Could not extract VQD token.";
-              continue;
-            }
-            finalVqd = vqd;
+      // Try Bing Image Search First (Very reliable for serverless/Vercel)
+      try {
+        const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&first=${offset}&count=50`;
+        const bingRes = await fetchWithTimeout(bingUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           }
+        }, 8000);
 
-          // 2. Fetch 1 Page of Images
-          let targetUrl = nextParam 
-            ? `https://duckduckgo.com${nextParam.startsWith('/') ? nextParam : `/${nextParam}`}`
-            : `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,,,&p=1`;
+        if (bingRes.ok) {
+          const html = await bingRes.text();
+          const decodedHtml = html.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+          
+          const murlRegex = /"murl":"([^"]+)"/g;
+          const turlRegex = /"turl":"([^"]+)"/g;
+          
+          let murls = [];
+          let match;
+          while ((match = murlRegex.exec(decodedHtml)) !== null) {
+            murls.push(match[1]);
+          }
+          
+          let turls = [];
+          while ((match = turlRegex.exec(decodedHtml)) !== null) {
+            turls.push(match[1]);
+          }
+          
+          for (let i = 0; i < murls.length; i++) {
+            results.push({
+              id: murls[i],
+              url: murls[i],
+              thumbnail: turls[i] || murls[i],
+              title: query,
+              width: 800,
+              height: 600
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Bing search failed:", e);
+      }
 
-          const imgUrl = proxyGen(targetUrl);
-          const imgResponse = await fetchWithTimeout(imgUrl, {
+      // If Bing fails or returns no results, try Yahoo Image Search
+      if (results.length === 0) {
+        try {
+          const yahooUrl = `https://images.search.yahoo.com/search/images?p=${encodeURIComponent(query)}&b=${offset}`;
+          const yahooRes = await fetchWithTimeout(yahooUrl, {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-              "Accept": "application/json, text/javascript, */*; q=0.01",
-              "Accept-Language": "en-US,en;q=0.5",
-              "Referer": "https://duckduckgo.com/",
-              "Cookie": cookies
             }
           }, 8000);
 
-          if (!imgResponse.ok) {
-            lastError = `Image fetch failed with status: ${imgResponse.status}`;
-            continue; // Try next proxy
+          if (yahooRes.ok) {
+            const html = await yahooRes.text();
+            const decodedHtml = html.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+            
+            const iurlRegex = /"iurl":"([^"]+)"/g;
+            const ithRegex = /"ith":"([^"]+)"/g;
+            
+            let iurls = [];
+            let match;
+            while ((match = iurlRegex.exec(decodedHtml)) !== null) {
+              iurls.push(match[1]);
+            }
+            
+            let iths = [];
+            while ((match = ithRegex.exec(decodedHtml)) !== null) {
+              iths.push(match[1]);
+            }
+            
+            for (let i = 0; i < iurls.length; i++) {
+              results.push({
+                id: iurls[i],
+                url: iurls[i],
+                thumbnail: iths[i] || iurls[i],
+                title: query,
+                width: 800,
+                height: 600
+              });
+            }
           }
-
-          const data = await imgResponse.json();
-          
-          if (data.results && data.results.length > 0) {
-            finalResults = data.results;
-          }
-          
-          finalNext = data.next || "";
-          success = true;
-          break; // Successfully fetched images, break out of proxy loop
-
-        } catch (e: any) {
-          // If it's a timeout or fetch failed, we just record it and continue to the next proxy
-          lastError = e.message || "Network error";
-          continue;
+        } catch (e) {
+          console.error("Yahoo search failed:", e);
         }
       }
 
-      if (!success) {
-        throw new Error(lastError || "Failed to fetch images from all sources.");
+      if (results.length === 0) {
+        throw new Error("Failed to fetch images from search engines. They might be blocking the server IP.");
       }
 
-      // Map to our expected format
-      const mappedResults = finalResults.map((r: any) => ({
-        id: r.image,
-        url: r.image,
-        thumbnail: r.thumbnail,
-        title: r.title,
-        width: r.width,
-        height: r.height
-      }));
+      // Remove duplicates
+      const uniqueResults = Array.from(new Map(results.map(item => [item.id, item])).values());
 
       res.json({ 
-        results: mappedResults,
-        vqd: finalVqd,
-        next: finalNext
+        results: uniqueResults,
+        vqd: "", // Not needed anymore
+        next: nextOffset.toString()
       });
 
     } catch (error: any) {
-      console.error("DDG Search API Error:", error);
-      res.status(500).json({ error: error.message || "Failed to fetch images from DuckDuckGo" });
+      console.error("Search API Error:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch images" });
     }
   });
 
