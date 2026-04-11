@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import JSZip from 'jszip';
-import { Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, Sparkles, ArrowRight, Trash2, Layers } from 'lucide-react';
+import { 
+  Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, 
+  Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, 
+  Sparkles, ArrowRight, Trash2, Layers, Undo2, Redo2 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Types
@@ -38,28 +42,35 @@ const AUTHORS = [
 
 const ImageGridItem = React.memo(({ img, removeImage }: { img: UploadedImage, removeImage: (id: string) => void }) => (
   <motion.div 
-    initial={{ opacity: 0, scale: 0.8 }}
+    initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.8 }}
+    exit={{ opacity: 0, scale: 0.9 }}
+    layout
     style={{ 
       willChange: 'transform, opacity',
       transform: 'translateZ(0)'
     }}
-    className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-transform duration-300 hover:-translate-y-1"
+    className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
   >
     <img 
       src={img.croppedUrl || img.previewUrl} 
       alt="Preview" 
-      className="w-full h-full object-contain p-4 drop-shadow-lg transition-transform duration-500 group-hover:scale-110"
+      className="w-full h-full object-contain p-3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105"
       loading="lazy"
       decoding="async"
     />
-    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    
+    {/* Delete Button - More visible */}
     <button 
-      onClick={() => removeImage(img.id)}
-      className="absolute top-3 right-3 bg-white/95 dark:bg-zinc-800/95 text-zinc-500 hover:text-red-500 p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100 hover:bg-red-50 dark:hover:bg-red-900/20"
+      onClick={(e) => {
+        e.stopPropagation();
+        removeImage(img.id);
+      }}
+      className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700"
+      title="Remove Sticker"
     >
-      <Trash2 className="w-4 h-4" />
+      <X className="w-3.5 h-3.5" />
     </button>
   </motion.div>
 ));
@@ -67,6 +78,9 @@ const ImageGridItem = React.memo(({ img, removeImage }: { img: UploadedImage, re
 export default function WhatsappSCreate() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [images, setImages] = useState<UploadedImage[]>([]);
+  const [history, setHistory] = useState<UploadedImage[][]>([[]]);
+  const [historyPointer, setHistoryPointer] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [generatedPacks, setGeneratedPacks] = useState<GeneratedPack[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -106,7 +120,34 @@ export default function WhatsappSCreate() {
     }
   }, [images]);
 
+  // History management
+  const addToHistory = (newImages: UploadedImage[]) => {
+    const newHistory = history.slice(0, historyPointer + 1);
+    newHistory.push(newImages);
+    if (newHistory.length > 30) newHistory.shift();
+    setHistory(newHistory);
+    setHistoryPointer(newHistory.length - 1);
+    setImages(newImages);
+  };
+
+  const undo = () => {
+    if (historyPointer > 0) {
+      const newPointer = historyPointer - 1;
+      setHistoryPointer(newPointer);
+      setImages(history[newPointer]);
+    }
+  };
+
+  const redo = () => {
+    if (historyPointer < history.length - 1) {
+      const newPointer = historyPointer + 1;
+      setHistoryPointer(newPointer);
+      setImages(history[newPointer]);
+    }
+  };
+
   const handleFileUpload = async (files: FileList | File[]) => {
+    setIsProcessing(true);
     const standardImages: UploadedImage[] = [];
     const zipFiles: File[] = [];
     
@@ -114,7 +155,7 @@ export default function WhatsappSCreate() {
       const file = files[i];
       if (file.type.startsWith('image/')) {
         standardImages.push({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7) + Date.now(),
           file,
           previewUrl: URL.createObjectURL(file),
         });
@@ -123,42 +164,51 @@ export default function WhatsappSCreate() {
       }
     }
     
+    let currentImages = [...images];
     if (standardImages.length > 0) {
-      setImages(prev => [...prev, ...standardImages]);
+      currentImages = [...currentImages, ...standardImages];
+      setImages(currentImages);
     }
     
     for (const zipFile of zipFiles) {
       try {
         const zip = await JSZip.loadAsync(zipFile);
-        const zipEntries = Object.values(zip.files);
-        const chunkSize = 10;
+        const zipEntries = Object.values(zip.files).filter(f => !f.dir && f.name.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i));
+        const chunkSize = 15;
         
         for (let i = 0; i < zipEntries.length; i += chunkSize) {
           const chunk = zipEntries.slice(i, i + chunkSize);
           const extractedImages: UploadedImage[] = [];
           
           await Promise.all(chunk.map(async (zipEntry) => {
-            if (!zipEntry.dir && zipEntry.name.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
-              const blob = await zipEntry.async('blob');
-              const extractedFile = new File([blob], zipEntry.name, { type: `image/${zipEntry.name.split('.').pop()}` });
-              extractedImages.push({
-                id: Math.random().toString(36).substring(7),
-                file: extractedFile,
-                previewUrl: URL.createObjectURL(extractedFile),
-              });
-            }
+            const blob = await zipEntry.async('blob');
+            const extractedFile = new File([blob], zipEntry.name, { type: `image/${zipEntry.name.split('.').pop()}` });
+            extractedImages.push({
+              id: Math.random().toString(36).substring(7) + Date.now() + i,
+              file: extractedFile,
+              previewUrl: URL.createObjectURL(extractedFile),
+            });
           }));
           
           if (extractedImages.length > 0) {
-            setImages(prev => [...prev, ...extractedImages]);
+            currentImages = [...currentImages, ...extractedImages];
+            setImages(currentImages);
           }
-          await new Promise(resolve => setTimeout(resolve, 10)); // Yield to render
+          // Small delay to allow UI to breathe
+          await new Promise(resolve => setTimeout(resolve, 16));
         }
       } catch (error) {
         console.error("Error extracting ZIP:", error);
-        alert("Failed to extract ZIP file.");
       }
     }
+    
+    addToHistory(currentImages);
+    setIsProcessing(false);
+  };
+
+  const removeImage = (id: string) => {
+    const newImages = images.filter(i => i.id !== id);
+    addToHistory(newImages);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -166,15 +216,6 @@ export default function WhatsappSCreate() {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileUpload(e.dataTransfer.files);
     }
-  };
-
-  const removeImage = (id: string) => {
-    setImages(prev => {
-      const img = prev.find(i => i.id === id);
-      if (img) URL.revokeObjectURL(img.previewUrl);
-      if (img?.croppedUrl) URL.revokeObjectURL(img.croppedUrl);
-      return prev.filter(i => i.id !== id);
-    });
   };
 
   const updatePackSettings = (packIndex: number, field: keyof PackSettings, value: string) => {
@@ -477,7 +518,26 @@ export default function WhatsappSCreate() {
                         <p className="text-xs font-medium text-zinc-500">{images.length} images loaded</p>
                       </div>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
+                      <div className="flex bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-1 shadow-sm">
+                        <button 
+                          onClick={undo}
+                          disabled={historyPointer === 0}
+                          className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30 transition-colors"
+                          title="Undo"
+                        >
+                          <Undo2 className="w-4 h-4" />
+                        </button>
+                        <div className="w-px bg-zinc-200 dark:bg-zinc-700 my-1 mx-0.5"></div>
+                        <button 
+                          onClick={redo}
+                          disabled={historyPointer === history.length - 1}
+                          className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30 transition-colors"
+                          title="Redo"
+                        >
+                          <Redo2 className="w-4 h-4" />
+                        </button>
+                      </div>
                       <button 
                         onClick={() => setShowCropModal(true)}
                         className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm hover:shadow"
@@ -657,9 +717,9 @@ export default function WhatsappSCreate() {
         </AnimatePresence>
       </div>
 
-      {/* Cropping Loading Overlay */}
+      {/* Processing Loading Overlay */}
       <AnimatePresence>
-        {croppingStats.isActive && (
+        {(croppingStats.isActive || isProcessing) && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -677,22 +737,30 @@ export default function WhatsappSCreate() {
                   <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none"></circle>
                   <path className="opacity-100" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-zinc-900 dark:text-white">
-                  {Math.round((croppingStats.done / croppingStats.total) * 100) || 0}%
-                </div>
+                {croppingStats.isActive && (
+                  <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-zinc-900 dark:text-white">
+                    {Math.round((croppingStats.done / croppingStats.total) * 100) || 0}%
+                  </div>
+                )}
               </div>
-              <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">Smart Cropping</h3>
+              <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">
+                {croppingStats.isActive ? 'Smart Cropping' : 'Processing Images'}
+              </h3>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium mb-8">
-                Analyzing image {croppingStats.done} of {croppingStats.total}
+                {croppingStats.isActive 
+                  ? `Analyzing image ${croppingStats.done} of ${croppingStats.total}`
+                  : 'Preparing your stickers, please wait...'}
               </p>
-              <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
-                <motion.div 
-                  className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full" 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(croppingStats.done / croppingStats.total) * 100}%` }}
-                  transition={{ ease: "easeOut" }}
-                />
-              </div>
+              {croppingStats.isActive && (
+                <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <motion.div 
+                    className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full" 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(croppingStats.done / croppingStats.total) * 100}%` }}
+                    transition={{ ease: "easeOut" }}
+                  />
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
