@@ -226,9 +226,10 @@ export default function ExploreImages() {
         
         const a = document.createElement('a');
         a.href = blobUrl;
-        // Create a safe filename
-        const safeTitle = img.title ? img.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) : `image_${i}`;
-        a.download = `wa-s-create-${safeTitle}.jpg`;
+        // Create a safe and unique filename
+        const safeTitle = img.title ? img.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) : `image`;
+        const uniqueId = img.id.replace(/[^a-z0-9]/gi, '').substring(0, 6);
+        a.download = `wa-s-create-${safeTitle}-${i + 1}-${uniqueId}.jpg`;
         
         document.body.appendChild(a);
         a.click();
