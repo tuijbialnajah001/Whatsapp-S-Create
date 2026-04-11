@@ -48,36 +48,46 @@ const fetchWithTimeout = async (url: string, timeoutMs = 8000) => {
   }
 };
 
-const ImageCard = React.memo(({ img, isSelected, onToggle }: any) => (
-  <div
-    onClick={() => onToggle(img.id)}
-    style={{ 
-      transform: 'translateZ(0)',
-      willChange: 'transform'
-    }}
-    className={`relative group rounded-3xl overflow-hidden break-inside-avoid shadow-sm transition-all duration-300 mb-6 cursor-pointer border-4 ${isSelected ? 'border-emerald-500' : 'border-transparent bg-zinc-200 dark:bg-zinc-800'}`}
-  >
-    <img
-      src={img.thumbnail || img.url}
-      alt={img.title}
-      className={`w-full object-cover transform transition-transform duration-500 ${isSelected ? 'scale-105' : 'group-hover:scale-105'}`}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-    />
-    
-    {/* Selection Overlay */}
-    <div className={`absolute inset-0 transition-opacity duration-300 ${isSelected ? 'bg-emerald-500/20 opacity-100' : 'bg-black/40 opacity-0 group-hover:opacity-100'}`}>
-      <div className="absolute top-4 right-4">
-        {isSelected ? (
-          <CheckCircle2 className="w-8 h-8 text-emerald-500 bg-white rounded-full" />
-        ) : (
-          <Circle className="w-8 h-8 text-white/70" />
-        )}
+const ImageCard = React.memo(({ img, isSelected, onToggle }: any) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  return (
+    <div
+      onClick={() => onToggle(img.id)}
+      style={{ 
+        transform: 'translateZ(0)',
+        willChange: 'transform'
+      }}
+      className={`relative group rounded-3xl overflow-hidden break-inside-avoid shadow-sm transition-all duration-300 mb-6 cursor-pointer border-4 ${isSelected ? 'border-emerald-500' : 'border-transparent bg-zinc-200 dark:bg-zinc-800'} min-h-[200px]`}
+    >
+      {!isLoaded && (
+        <div className="absolute inset-0 bg-zinc-300/50 dark:bg-zinc-700/50 animate-pulse flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-zinc-400 animate-spin opacity-50" />
+        </div>
+      )}
+      <img
+        src={img.thumbnail || img.url}
+        alt={img.title}
+        onLoad={() => setIsLoaded(true)}
+        className={`w-full object-cover transform transition-all duration-700 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${isSelected ? 'scale-105' : 'group-hover:scale-105'}`}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+      />
+      
+      {/* Selection Overlay */}
+      <div className={`absolute inset-0 transition-opacity duration-300 ${isSelected ? 'bg-emerald-500/20 opacity-100' : 'bg-black/40 opacity-0 group-hover:opacity-100'}`}>
+        <div className="absolute top-4 right-4">
+          {isSelected ? (
+            <CheckCircle2 className="w-8 h-8 text-emerald-500 bg-white rounded-full" />
+          ) : (
+            <Circle className="w-8 h-8 text-white/70" />
+          )}
+        </div>
       </div>
     </div>
-  </div>
-));
+  );
+});
 
 export default function ExploreImages() {
   const [images, setImages] = useState<any[]>(memoryCache.images);
@@ -213,35 +223,42 @@ export default function ExploreImages() {
     
     const selectedImgs = images.filter(img => selectedIds.has(img.id));
     
-    for (let i = 0; i < selectedImgs.length; i++) {
-      const img = selectedImgs[i];
+    // Fetch all images in parallel to speed up the process
+    const downloadTasks = selectedImgs.map(async (img, i) => {
       try {
-        // Fetch image through our local proxy to avoid CORS issues
         const response = await fetchWithTimeout(`/api/proxy-image?url=${encodeURIComponent(img.url)}`, 15000);
-        
         if (!response.ok) throw new Error("Failed to download image through proxy.");
-        
         const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        // Create a safe and unique filename
-        const safeTitle = img.title ? img.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) : `image`;
-        const uniqueId = img.id.replace(/[^a-z0-9]/gi, '').substring(0, 6);
-        a.download = `wa-s-create-${safeTitle}-${i + 1}-${uniqueId}.jpg`;
-        
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        URL.revokeObjectURL(blobUrl);
-        
-        // Small delay to prevent browser from blocking multiple rapid downloads
-        await new Promise(resolve => setTimeout(resolve, 250));
+        return { img, i, blob };
       } catch (error) {
         console.error('Failed to download', img.url, error);
+        return null;
       }
+    });
+
+    const downloadedBlobs = await Promise.all(downloadTasks);
+
+    // Trigger file saves sequentially with a tiny delay to prevent browser from blocking them as spam
+    for (const item of downloadedBlobs) {
+      if (!item) continue;
+      
+      const { img, i, blob } = item;
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const safeSearchQuery = searchQuery ? searchQuery.replace(/[^a-z0-9\s]/gi, '_').trim() : 'image';
+      const uniqueId = img.id.replace(/[^a-z0-9]/gi, '').substring(0, 6);
+      a.download = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${uniqueId}.jpg`;
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      URL.revokeObjectURL(blobUrl);
+      
+      // 100ms delay is usually enough to bypass browser multi-download blocking
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
     setDownloading(false);
