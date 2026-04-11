@@ -42,15 +42,17 @@ const AUTHORS = [
 
 const ImageGridItem = React.memo(({ img, removeImage }: { img: UploadedImage, removeImage: (id: string) => void }) => (
   <motion.div 
+    layout
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.9 }}
-    layout
-    style={{ 
-      willChange: 'transform, opacity',
-      transform: 'translateZ(0)'
+    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+    transition={{ 
+      type: "spring", 
+      stiffness: 500, 
+      damping: 30, 
+      mass: 1 
     }}
-    className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+    className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md"
   >
     <img 
       src={img.croppedUrl || img.previewUrl} 
@@ -61,13 +63,12 @@ const ImageGridItem = React.memo(({ img, removeImage }: { img: UploadedImage, re
     />
     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
     
-    {/* Delete Button - More visible */}
     <button 
       onClick={(e) => {
         e.stopPropagation();
         removeImage(img.id);
       }}
-      className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700"
+      className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 md:opacity-0 md:group-hover:opacity-100"
       title="Remove Sticker"
     >
       <X className="w-3.5 h-3.5" />
@@ -508,48 +509,65 @@ export default function WhatsappSCreate() {
               <div className="xl:col-span-8 flex flex-col">
                 <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[700px] shadow-2xl shadow-zinc-200/20 dark:shadow-black/40">
                   {/* Toolbar */}
-                  <div className="px-6 py-5 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between bg-white/50 dark:bg-zinc-900/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                  <div className="px-6 py-4 border-b border-zinc-200/50 dark:border-zinc-800/50 flex flex-wrap items-center justify-between gap-4 bg-white/50 dark:bg-zinc-900/50">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
                         <ImageIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
                       </div>
                       <div>
                         <h2 className="font-bold text-zinc-900 dark:text-white leading-tight">Canvas</h2>
-                        <p className="text-xs font-medium text-zinc-500">{images.length} images loaded</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{images.length} Stickers</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-1 shadow-sm">
+                    
+                    <div className="flex items-center gap-4">
+                      {/* History Controls Group */}
+                      <div className="flex items-center bg-zinc-100/80 dark:bg-zinc-800/80 rounded-xl p-1 border border-zinc-200/50 dark:border-zinc-700/50">
                         <button 
                           onClick={undo}
                           disabled={historyPointer === 0}
-                          className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30 transition-colors"
-                          title="Undo"
+                          className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-all hover:bg-white dark:hover:bg-zinc-700 rounded-lg"
+                          title="Undo (Ctrl+Z)"
                         >
                           <Undo2 className="w-4 h-4" />
                         </button>
-                        <div className="w-px bg-zinc-200 dark:bg-zinc-700 my-1 mx-0.5"></div>
+                        <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-600 mx-1"></div>
                         <button 
                           onClick={redo}
                           disabled={historyPointer === history.length - 1}
-                          className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30 transition-colors"
-                          title="Redo"
+                          className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-all hover:bg-white dark:hover:bg-zinc-700 rounded-lg"
+                          title="Redo (Ctrl+Y)"
                         >
                           <Redo2 className="w-4 h-4" />
                         </button>
                       </div>
-                      <button 
-                        onClick={() => setShowCropModal(true)}
-                        className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm hover:shadow"
-                      >
-                        <Crop className="w-4 h-4" /> Smart Crop
-                      </button>
-                      <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-4 py-2.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-all shadow-sm hover:shadow"
-                      >
-                        <Plus className="w-4 h-4" /> Add More
-                      </button>
+
+                      {/* Action Buttons Group */}
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            if (confirm("Are you sure you want to clear all stickers?")) {
+                              addToHistory([]);
+                            }
+                          }}
+                          className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shadow-sm active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Clear All
+                        </button>
+                        <button 
+                          onClick={() => setShowCropModal(true)}
+                          className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm active:scale-95"
+                        >
+                          <Crop className="w-3.5 h-3.5" /> Smart Crop
+                        </button>
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add More
+                        </button>
+                      </div>
+                      
                       <input 
                         type="file" 
                         ref={fileInputRef} 
@@ -562,14 +580,17 @@ export default function WhatsappSCreate() {
                   </div>
                   
                   {/* Grid */}
-                  <div className="p-6 bg-zinc-50/50 dark:bg-black/20 flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                      <AnimatePresence>
+                  <div className="p-8 bg-zinc-50/30 dark:bg-black/10 flex-1 overflow-y-auto custom-scrollbar">
+                    <motion.div 
+                      layout
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
+                    >
+                      <AnimatePresence mode="popLayout">
                         {images.map((img) => (
                           <ImageGridItem key={img.id} img={img} removeImage={removeImage} />
                         ))}
                       </AnimatePresence>
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
               </div>
@@ -591,37 +612,41 @@ export default function WhatsappSCreate() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         key={pack.id} 
-                        className="bg-white dark:bg-zinc-900/50 rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-sm"
+                        className="bg-white dark:bg-zinc-900/50 rounded-2xl p-6 border border-zinc-200/80 dark:border-zinc-800 shadow-sm hover:border-emerald-500/30 transition-colors"
                       >
-                        <div className="flex items-center justify-between mb-5">
-                          <h4 className="font-bold text-zinc-900 dark:text-white">Pack {index + 1}</h4>
-                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1.5 rounded-full">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            <h4 className="font-bold text-zinc-900 dark:text-white">Pack {index + 1}</h4>
+                          </div>
+                          <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1.5 rounded-lg uppercase tracking-wider">
                             {pack.images.length} / 30
                           </span>
                         </div>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-5">
                           <div>
-                            <label className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-widest">Pack Name</label>
+                            <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-[0.2em]">Pack Name</label>
                             <input 
                               type="text" 
+                              placeholder="Enter pack name..."
                               value={pack.settings.name}
                               onChange={(e) => updatePackSettings(index, 'name', e.target.value)}
-                              className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all shadow-inner"
+                              className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-inner"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-widest">Author</label>
+                            <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-[0.2em]">Author</label>
                             <div className="relative">
                               <select 
                                 value={pack.settings.author}
                                 onChange={(e) => updatePackSettings(index, 'author', e.target.value)}
-                                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all appearance-none shadow-inner pr-10"
+                                className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none shadow-inner pr-10 cursor-pointer"
                               >
                                 {AUTHORS.map(a => <option key={a} value={a}>{a}</option>)}
                               </select>
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                               </div>
                             </div>
                           </div>
