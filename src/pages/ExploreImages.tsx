@@ -223,45 +223,27 @@ export default function ExploreImages() {
     
     const selectedImgs = images.filter(img => selectedIds.has(img.id));
     
-    // Fetch all images in parallel to speed up the process
-    const downloadTasks = selectedImgs.map(async (img, i) => {
-      try {
-        const response = await fetchWithTimeout(`/api/proxy-image?url=${encodeURIComponent(img.url)}`, 15000);
-        if (!response.ok) throw new Error("Failed to download image through proxy.");
-        const blob = await response.blob();
-        return { img, i, blob };
-      } catch (error) {
-        console.error('Failed to download', img.url, error);
-        return null;
-      }
-    });
-
-    const downloadedBlobs = await Promise.all(downloadTasks);
-
-    // Trigger file saves synchronously so the browser natively queues them all at once.
-    // This prevents the download from stopping if the browser is minimized.
-    downloadedBlobs.forEach((item) => {
-      if (!item) return;
+    // Trigger native browser downloads directly by pointing to the proxy with a filename param.
+    // This avoids downloading to RAM first and shows native browser progress immediately.
+    for (let i = 0; i < selectedImgs.length; i++) {
+      const img = selectedImgs[i];
+      const safeSearchQuery = searchQuery ? searchQuery.replace(/[^a-z0-9\s]/gi, '_').trim() : 'image';
+      const trueUniqueId = Math.random().toString(36).substring(2, 8);
+      const filename = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${i + 1}_${trueUniqueId}.jpg`;
       
-      const { img, i, blob } = item;
-      const blobUrl = URL.createObjectURL(blob);
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`;
       
       const a = document.createElement('a');
-      a.href = blobUrl;
-      const safeSearchQuery = searchQuery ? searchQuery.replace(/[^a-z0-9\s]/gi, '_').trim() : 'image';
-      
-      // Generate a truly unique ID (random string) because img.id was just the URL, 
-      // causing the first 6 chars to always be "httpsw" for the same host.
-      const trueUniqueId = Math.random().toString(36).substring(2, 8);
-      a.download = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${i + 1}_${trueUniqueId}.jpg`;
+      a.href = proxyUrl;
+      a.download = filename; // Fallback for browsers
       
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
-      // Revoke the object URL after a short delay to ensure the browser has started the download
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    });
+      // Small delay to ensure the browser registers each download separately
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
     
     setDownloading(false);
     setSelectedIds(new Set()); // Clear selection after successful download

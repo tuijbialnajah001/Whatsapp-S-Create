@@ -147,6 +147,7 @@ async function startServer() {
   // Image Proxy Endpoint (to bypass CORS when downloading)
   app.get("/api/proxy-image", async (req, res) => {
     const imageUrl = req.query.url as string;
+    const filename = req.query.filename as string;
     if (!imageUrl) {
       return res.status(400).send("URL is required");
     }
@@ -196,6 +197,11 @@ async function startServer() {
       const contentType = imageResponse.headers.get("content-type");
       if (contentType) {
         res.setHeader("Content-Type", contentType);
+      }
+
+      if (filename) {
+        // Force the browser to trigger a native download with the specified filename
+        res.setHeader("Content-Disposition", `attachment; filename="${filename.replace(/"/g, '')}"`);
       }
 
       const arrayBuffer = await imageResponse.arrayBuffer();
