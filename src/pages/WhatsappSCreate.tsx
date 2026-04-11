@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import JSZip from 'jszip';
-import { Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, Sparkles, ArrowRight, Trash2, Layers } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 // Types
 interface UploadedImage {
@@ -35,6 +36,34 @@ const AUTHORS = [
   "Powered by Kҽɳƈԋσ Aʅʅιαɳƈҽ"
 ];
 
+const ImageGridItem = React.memo(({ img, removeImage }: { img: UploadedImage, removeImage: (id: string) => void }) => (
+  <motion.div 
+    initial={{ opacity: 0, scale: 0.8 }}
+    animate={{ opacity: 1, scale: 1 }}
+    exit={{ opacity: 0, scale: 0.8 }}
+    style={{ 
+      willChange: 'transform, opacity',
+      transform: 'translateZ(0)'
+    }}
+    className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-transform duration-300 hover:-translate-y-1"
+  >
+    <img 
+      src={img.croppedUrl || img.previewUrl} 
+      alt="Preview" 
+      className="w-full h-full object-contain p-4 drop-shadow-lg transition-transform duration-500 group-hover:scale-110"
+      loading="lazy"
+      decoding="async"
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    <button 
+      onClick={() => removeImage(img.id)}
+      className="absolute top-3 right-3 bg-white/95 dark:bg-zinc-800/95 text-zinc-500 hover:text-red-500 p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100 hover:bg-red-50 dark:hover:bg-red-900/20"
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  </motion.div>
+));
+
 export default function WhatsappSCreate() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [images, setImages] = useState<UploadedImage[]>([]);
@@ -45,34 +74,13 @@ export default function WhatsappSCreate() {
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropRatio, setCropRatio] = useState<number>(1);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [croppingStats, setCroppingStats] = useState({ isActive: false, total: 0, done: 0 });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
     workerRef.current = new Worker(new URL('../workers/cropWorker.ts', import.meta.url), { type: 'module' });
-
-    workerRef.current.onmessage = (e) => {
-      const { id, cropX, cropY, cropW, cropH, previewUrl } = e.data;
-
-      const imageElement = new Image();
-      imageElement.src = previewUrl;
-      imageElement.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = cropW;
-        canvas.height = cropH;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(imageElement, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const croppedUrl = URL.createObjectURL(blob);
-              setImages(current => current.map(i => i.id === id ? { ...i, croppedUrl, isCropping: false } : i));
-            }
-          }, 'image/webp', 0.9);
-        }
-      };
-    };
 
     return () => {
       workerRef.current?.terminate();
@@ -239,11 +247,12 @@ export default function WhatsappSCreate() {
         }
       }
 
-      const content = await zip.generateAsync({ type: 'blob' });
+      const content = await zip.generateAsync({ type: 'arraybuffer' });
+      const wastickersBlob = new Blob([content], { type: 'application/octet-stream' });
       newGeneratedPacks.push({
         id: pack.id,
         name: pack.settings.name,
-        blob: content,
+        blob: wastickersBlob,
       });
     }
 
@@ -264,18 +273,31 @@ export default function WhatsappSCreate() {
     setShowInstructions(true);
   };
 
-  const handleAutoCrop = () => {
+  const handleAutoCrop = async () => {
     setShowCropModal(false);
-    if (!workerRef.current) return;
+    if (!workerRef.current || images.length === 0) return;
 
-    setImages(prev => prev.map(img => ({ ...img, isCropping: true })));
+    setCroppingStats({ isActive: true, total: images.length, done: 0 });
 
-    const worker = workerRef.current;
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
 
-    images.forEach(img => {
-      const imageElement = new Image();
-      imageElement.src = img.previewUrl;
-      imageElement.onload = () => {
+      try {
+        const imageElement = new Image();
+        imageElement.src = img.previewUrl;
+        await new Promise((resolve, reject) => {
+          imageElement.onload = resolve;
+          imageElement.onerror = reject;
+        });
+
+        const imgRatio = imageElement.width / imageElement.height;
+        
+        // Skip if already in the selected ratio (tolerance 0.02)
+        if (Math.abs(imgRatio - cropRatio) < 0.02) {
+          setCroppingStats(prev => ({ ...prev, done: i + 1 }));
+          continue;
+        }
+
         const MAX_SIZE = 256;
         let thumbW = imageElement.width;
         let thumbH = imageElement.height;
@@ -290,60 +312,98 @@ export default function WhatsappSCreate() {
         canvas.width = thumbW;
         canvas.height = thumbH;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
         if (ctx) {
           ctx.drawImage(imageElement, 0, 0, thumbW, thumbH);
           const imageData = ctx.getImageData(0, 0, thumbW, thumbH);
-          worker.postMessage({ 
-            id: img.id, 
-            imageData, 
-            targetRatio: cropRatio,
-            origW: imageElement.width,
-            origH: imageElement.height,
-            previewUrl: img.previewUrl
+          
+          await new Promise<void>((resolveWorker) => {
+            const messageHandler = (e: MessageEvent) => {
+              if (e.data.id === img.id) {
+                workerRef.current?.removeEventListener('message', messageHandler);
+                
+                const { cropX, cropY, cropW, cropH } = e.data;
+                const cropCanvas = document.createElement('canvas');
+                cropCanvas.width = cropW;
+                cropCanvas.height = cropH;
+                const cropCtx = cropCanvas.getContext('2d');
+                if (cropCtx) {
+                  cropCtx.drawImage(imageElement, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                  cropCanvas.toBlob((blob) => {
+                    if (blob) {
+                      const croppedUrl = URL.createObjectURL(blob);
+                      setImages(current => current.map(item => item.id === img.id ? { ...item, croppedUrl } : item));
+                    }
+                    resolveWorker();
+                  }, 'image/webp', 0.9);
+                } else {
+                  resolveWorker();
+                }
+              }
+            };
+            
+            workerRef.current!.addEventListener('message', messageHandler);
+            workerRef.current!.postMessage({ 
+              id: img.id, 
+              imageData, 
+              targetRatio: cropRatio,
+              origW: imageElement.width,
+              origH: imageElement.height,
+              previewUrl: img.previewUrl
+            });
           });
         }
-      };
-    });
+      } catch (error) {
+        console.error("Error cropping image", img.id, error);
+      }
+
+      setCroppingStats(prev => ({ ...prev, done: i + 1 }));
+      // Yield to main thread to keep UI smooth using requestAnimationFrame
+      await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    }
+
+    setTimeout(() => setCroppingStats({ isActive: false, total: 0, done: 0 }), 500);
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#0A0A0A] text-gray-900 dark:text-gray-100 font-sans selection:bg-green-500/30">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-[#111]/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
-              <MessageCircle className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-lg font-bold tracking-tight">StickerStudio</h1>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="w-full flex-1 flex flex-col"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col">
         {/* Stepper */}
-        <div className="max-w-3xl mx-auto mb-12">
+        <div className="max-w-2xl mx-auto w-full mb-16">
           <div className="flex items-center justify-between relative">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-gray-200 dark:bg-gray-800 -z-10 rounded-full"></div>
-            <div 
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-green-500 -z-10 transition-all duration-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]" 
-              style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
-            ></div>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500"
+                initial={{ width: '0%' }}
+                animate={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+              />
+            </div>
             
             {[
               { num: 1, label: 'Upload', icon: Upload },
-              { num: 2, label: 'Organize', icon: Settings2 },
+              { num: 2, label: 'Organize', icon: Layers },
               { num: 3, label: 'Export', icon: Download }
             ].map((s) => (
-              <div key={s.num} className="flex flex-col items-center gap-2 bg-[#FAFAFA] dark:bg-[#0A0A0A] px-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                  step >= s.num 
-                    ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
-                    : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-400'
-                }`}>
+              <div key={s.num} className="relative flex flex-col items-center gap-3 bg-zinc-50 dark:bg-zinc-950 px-4">
+                <motion.div 
+                  animate={{ 
+                    scale: step === s.num ? 1.1 : 1,
+                    backgroundColor: step >= s.num ? '#10b981' : 'transparent',
+                    borderColor: step >= s.num ? '#10b981' : '#d4d4d8'
+                  }}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors duration-300 ${
+                    step >= s.num ? 'text-white shadow-lg shadow-emerald-500/30' : 'text-zinc-400 dark:border-zinc-700'
+                  }`}
+                >
                   <s.icon className="w-5 h-5" />
-                </div>
-                <span className={`text-xs font-bold uppercase tracking-wider ${step >= s.num ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                </motion.div>
+                <span className={`text-xs font-bold uppercase tracking-widest transition-colors ${step >= s.num ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
                   {s.label}
                 </span>
               </div>
@@ -351,319 +411,422 @@ export default function WhatsappSCreate() {
           </div>
         </div>
 
-        {/* Step 1: Upload */}
-        {step === 1 && (
-          <div className="max-w-3xl mx-auto mt-8">
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-3xl blur-xl group-hover:blur-2xl transition-all opacity-50"></div>
-              <div
-                className="relative border-2 border-dashed border-green-500/30 dark:border-green-500/20 rounded-3xl p-16 text-center bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-900 transition-all cursor-pointer"
+        <AnimatePresence mode="wait">
+          {/* Step 1: Upload */}
+          {step === 1 && (
+            <motion.div 
+              key="step1"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-3xl mx-auto w-full flex-1 flex flex-col justify-center"
+            >
+              <motion.div 
+                whileHover={{ scale: 1.01 }} 
+                whileTap={{ scale: 0.99 }} 
+                className="relative group cursor-pointer"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform">
-                  <Upload className="w-10 h-10" />
+                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2.5rem] opacity-10 group-hover:opacity-20 transition duration-500"></div>
+                <div className="relative glass-panel rounded-[2.5rem] p-20 text-center flex flex-col items-center border-2 border-dashed border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-colors">
+                  <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mb-8 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <Upload className="w-12 h-12" />
+                  </div>
+                  <h2 className="text-4xl font-bold mb-4 text-zinc-900 dark:text-white tracking-tight">Drop your images here</h2>
+                  <p className="text-zinc-500 dark:text-zinc-400 mb-10 max-w-md mx-auto text-lg leading-relaxed">
+                    Upload photos or a ZIP file. We'll extract, smart-crop, and package them into WhatsApp stickers instantly.
+                  </p>
+                  <button className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center gap-2">
+                    Browse Files <ArrowRight className="w-5 h-5" />
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    multiple 
+                    accept="image/*,.zip" 
+                    onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                  />
                 </div>
-                <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white tracking-tight">Drag & Drop Images</h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto text-lg">
-                  Upload your photos or a ZIP file. We'll automatically extract, crop, and package them for WhatsApp.
-                </p>
-                <button className="bg-green-500 hover:bg-green-600 text-white px-8 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-green-500/20 hover:shadow-green-500/40">
-                  Browse Files
-                </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  multiple 
-                  accept="image/*,.zip" 
-                  onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
 
-        {/* Step 2: Organize */}
-        {step === 2 && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Workspace */}
-            <div className="lg:col-span-8 flex flex-col">
-              <div className="bg-white dark:bg-[#111] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col h-full min-h-[500px]">
-                {/* Toolbar */}
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-gray-400" />
-                    <h2 className="font-semibold text-gray-900 dark:text-white">Canvas <span className="text-gray-400 font-normal text-sm ml-2">({images.length} images)</span></h2>
+          {/* Step 2: Organize */}
+          {step === 2 && (
+            <motion.div 
+              key="step2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1"
+            >
+              {/* Workspace */}
+              <div className="xl:col-span-8 flex flex-col">
+                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[700px] shadow-2xl shadow-zinc-200/20 dark:shadow-black/40">
+                  {/* Toolbar */}
+                  <div className="px-6 py-5 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between bg-white/50 dark:bg-zinc-900/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                        <ImageIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                      </div>
+                      <div>
+                        <h2 className="font-bold text-zinc-900 dark:text-white leading-tight">Canvas</h2>
+                        <p className="text-xs font-medium text-zinc-500">{images.length} images loaded</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => setShowCropModal(true)}
+                        className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm hover:shadow"
+                      >
+                        <Crop className="w-4 h-4" /> Smart Crop
+                      </button>
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-4 py-2.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-all shadow-sm hover:shadow"
+                      >
+                        <Plus className="w-4 h-4" /> Add More
+                      </button>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        multiple 
+                        accept="image/*,.zip" 
+                        onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => setShowCropModal(true)}
-                      className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
-                    >
-                      <Crop className="w-4 h-4" /> Auto Crop
-                    </button>
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" /> Add More
-                    </button>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      multiple 
-                      accept="image/*,.zip" 
-                      onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-                    />
+                  
+                  {/* Grid */}
+                  <div className="p-6 bg-zinc-50/50 dark:bg-black/20 flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                      <AnimatePresence>
+                        {images.map((img) => (
+                          <ImageGridItem key={img.id} img={img} removeImage={removeImage} />
+                        ))}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Grid */}
-                <div className="p-6 bg-gray-50/50 dark:bg-black/20 flex-1 overflow-y-auto">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                    {images.map((img) => (
-                      <div key={img.id} className="group relative aspect-square rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-checkerboard shadow-sm hover:shadow-md transition-all">
-                        {img.isCropping ? (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm">
-                            <Loader2 className="w-6 h-6 animate-spin text-green-500" />
+              </div>
+
+              {/* Inspector */}
+              <div className="xl:col-span-4">
+                <div className="glass-panel rounded-3xl shadow-2xl shadow-zinc-200/20 dark:shadow-black/40 p-6 sticky top-28 flex flex-col max-h-[700px]">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                      <Settings2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">Pack Settings</h3>
+                  </div>
+                  
+                  <div className="space-y-5 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                    {packs.map((pack, index) => (
+                      <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        key={pack.id} 
+                        className="bg-white dark:bg-zinc-900/50 rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between mb-5">
+                          <h4 className="font-bold text-zinc-900 dark:text-white">Pack {index + 1}</h4>
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1.5 rounded-full">
+                            {pack.images.length} / 30
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-widest">Pack Name</label>
+                            <input 
+                              type="text" 
+                              value={pack.settings.name}
+                              onChange={(e) => updatePackSettings(index, 'name', e.target.value)}
+                              className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all shadow-inner"
+                            />
                           </div>
-                        ) : (
-                          <img 
-                            src={img.croppedUrl || img.previewUrl} 
-                            alt="Preview" 
-                            className="w-full h-full object-contain p-4 drop-shadow-md transition-transform group-hover:scale-105"
-                          />
-                        )}
-                        <button 
-                          onClick={() => removeImage(img.id)}
-                          className="absolute top-2 right-2 bg-white dark:bg-gray-800 text-gray-400 hover:text-red-500 p-1.5 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all transform scale-90 group-hover:scale-100"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-widest">Author</label>
+                            <div className="relative">
+                              <select 
+                                value={pack.settings.author}
+                                onChange={(e) => updatePackSettings(index, 'author', e.target.value)}
+                                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all appearance-none shadow-inner pr-10"
+                              >
+                                {AUTHORS.map(a => <option key={a} value={a}>{a}</option>)}
+                              </select>
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Inspector */}
-            <div className="lg:col-span-4">
-              <div className="bg-white dark:bg-[#111] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 sticky top-24">
-                <div className="flex items-center gap-2 mb-6">
-                  <Settings2 className="w-5 h-5 text-gray-400" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight">Pack Settings</h3>
-                </div>
-                
-                <div className="space-y-6 max-h-[calc(100vh-300px)] overflow-y-auto pr-2 custom-scrollbar">
-                  {packs.map((pack, index) => (
-                    <div key={pack.id} className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">Pack {index + 1}</h4>
-                        <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2.5 py-1 rounded-full">
-                          {pack.images.length}/30
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Name</label>
-                          <input 
-                            type="text" 
-                            value={pack.settings.name}
-                            onChange={(e) => updatePackSettings(index, 'name', e.target.value)}
-                            className="w-full px-3 py-2.5 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all shadow-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Author</label>
-                          <select 
-                            value={pack.settings.author}
-                            onChange={(e) => updatePackSettings(index, 'author', e.target.value)}
-                            className="w-full px-3 py-2.5 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all appearance-none shadow-sm"
-                          >
-                            {AUTHORS.map(a => <option key={a} value={a}>{a}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
-                  <button 
-                    onClick={generatePacks}
-                    disabled={isGenerating || images.length === 0}
-                    className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-4 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-green-500/20 hover:shadow-green-500/40 flex items-center justify-center gap-2"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Packaging ({progress}%)
-                      </>
-                    ) : (
-                      'Generate Packs'
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Export */}
-        {step === 3 && (
-          <div className="max-w-2xl mx-auto mt-12 text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full mb-8 shadow-inner">
-              <CheckCircle2 className="w-12 h-12" />
-            </div>
-            <h2 className="text-4xl font-bold mb-4 tracking-tight">Packs Ready!</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-10 text-lg">
-              Your stickers have been perfectly cropped and packaged. Download them below.
-            </p>
-
-            <div className="space-y-4 mb-10 text-left">
-              {generatedPacks.map((pack) => (
-                <div key={pack.id} className="bg-white dark:bg-[#111] border border-gray-200 dark:border-gray-800 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center text-green-600 dark:text-green-400">
-                      <Briefcase className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{pack.name}</h3>
-                      <p className="text-sm text-gray-500">WhatsApp Sticker Pack (.wastickers)</p>
-                    </div>
+                  <div className="pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-800">
+                    <button 
+                      onClick={generatePacks}
+                      disabled={isGenerating || images.length === 0}
+                      className="relative w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:from-zinc-300 disabled:to-zinc-300 dark:disabled:from-zinc-800 dark:disabled:to-zinc-800 disabled:text-zinc-500 text-white px-4 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-2 overflow-hidden"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Packaging ({progress}%)
+                          <div className="absolute bottom-0 left-0 h-1 bg-white/30" style={{ width: `${progress}%` }}></div>
+                        </>
+                      ) : (
+                        <>Generate Packs <ArrowRight className="w-5 h-5" /></>
+                      )}
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => downloadPack(pack)}
-                    className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-sm"
-                  >
-                    <Download className="w-4 h-4" /> Download
-                  </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            </motion.div>
+          )}
 
-            <button 
-              onClick={() => {
-                setImages([]);
-                setPacks([]);
-                setGeneratedPacks([]);
-                setStep(1);
-              }}
-              className="text-gray-500 hover:text-gray-900 dark:hover:text-white font-medium transition-colors"
+          {/* Step 3: Export */}
+          {step === 3 && (
+            <motion.div 
+              key="step3"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-2xl mx-auto mt-12 text-center glass-panel p-12 rounded-[3rem]"
             >
-              Create More Stickers
-            </button>
-          </div>
-        )}
-      </main>
-
-      {/* Crop Modal */}
-      {showCropModal && (
-        <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#111] rounded-3xl max-w-md w-full p-8 shadow-2xl border border-gray-200 dark:border-gray-800 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold tracking-tight">Auto Crop Settings</h3>
-              <button onClick={() => setShowCropModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 p-2 rounded-full transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="space-y-4 mb-8">
-              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                Select the target aspect ratio. Our smart algorithm will find the most interesting part of each image and crop it automatically.
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", bounce: 0.5 }}
+                className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-tr from-emerald-400 to-teal-500 text-white rounded-full mb-8 shadow-2xl shadow-emerald-500/30"
+              >
+                <CheckCircle2 className="w-14 h-14" />
+              </motion.div>
+              <h2 className="text-5xl font-extrabold mb-4 tracking-tight text-zinc-900 dark:text-white">Ready to Share!</h2>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-12 text-lg">
+                Your stickers are perfectly packaged. Download them and import directly into WhatsApp.
               </p>
-              
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                {[
-                  { label: '1:1 (Square)', value: 1 },
-                  { label: '4:5 (Portrait)', value: 4/5 },
-                  { label: '16:9 (Landscape)', value: 16/9 },
-                  { label: '9:16 (Story)', value: 9/16 },
-                ].map(ratio => (
-                  <button
-                    key={ratio.label}
-                    onClick={() => setCropRatio(ratio.value)}
-                    className={`px-4 py-3.5 rounded-xl border text-sm font-semibold transition-all ${
-                      cropRatio === ratio.value 
-                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 shadow-sm' 
-                        : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900'
-                    }`}
+
+              <div className="space-y-4 mb-12 text-left">
+                {generatedPacks.map((pack, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    key={pack.id} 
+                    className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow"
                   >
-                    {ratio.label}
-                  </button>
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <Briefcase className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-zinc-900 dark:text-white">{pack.name}</h3>
+                        <p className="text-sm font-medium text-zinc-500">.wastickers format</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => downloadPack(pack)}
+                      className="flex items-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-3 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                    >
+                      <Download className="w-4 h-4" /> Download
+                    </button>
+                  </motion.div>
                 ))}
               </div>
-            </div>
 
-            <div className="flex gap-3">
               <button 
-                onClick={() => setShowCropModal(false)}
-                className="flex-1 px-4 py-3 rounded-xl font-semibold border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                onClick={() => {
+                  setImages([]);
+                  setPacks([]);
+                  setGeneratedPacks([]);
+                  setStep(1);
+                }}
+                className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-bold transition-colors flex items-center justify-center gap-2 mx-auto"
               >
-                Cancel
+                <Plus className="w-4 h-4" /> Create Another Pack
               </button>
-              <button 
-                onClick={handleAutoCrop}
-                className="flex-1 px-4 py-3 rounded-xl font-semibold bg-green-500 hover:bg-green-600 text-white transition-colors shadow-lg shadow-green-500/20"
-              >
-                Start Cropping
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Cropping Loading Overlay */}
+      <AnimatePresence>
+        {croppingStats.isActive && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col items-center text-center"
+            >
+              <div className="relative w-24 h-24 mb-8">
+                <svg className="animate-spin w-full h-full text-emerald-500" viewBox="0 0 24 24">
+                  <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none"></circle>
+                  <path className="opacity-100" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-zinc-900 dark:text-white">
+                  {Math.round((croppingStats.done / croppingStats.total) * 100) || 0}%
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">Smart Cropping</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 font-medium mb-8">
+                Analyzing image {croppingStats.done} of {croppingStats.total}
+              </p>
+              <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                <motion.div 
+                  className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full" 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(croppingStats.done / croppingStats.total) * 100}%` }}
+                  transition={{ ease: "easeOut" }}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Crop Modal */}
+      <AnimatePresence>
+        {showCropModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] max-w-md w-full p-8 shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Aspect Ratio</h3>
+                <button onClick={() => setShowCropModal(false)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 p-2.5 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4 mb-8">
+                <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
+                  Select the target aspect ratio. Our AI will find the most interesting part of each image and crop it perfectly.
+                </p>
+                
+                <div className="grid grid-cols-2 gap-3 mt-6">
+                  {[
+                    { label: '1:1 (Square)', value: 1 },
+                    { label: '4:5 (Portrait)', value: 4/5 },
+                    { label: '16:9 (Landscape)', value: 16/9 },
+                    { label: '9:16 (Story)', value: 9/16 },
+                  ].map(ratio => (
+                    <button
+                      key={ratio.label}
+                      onClick={() => setCropRatio(ratio.value)}
+                      className={`px-4 py-4 rounded-2xl border-2 text-sm font-bold transition-all ${
+                        cropRatio === ratio.value 
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 shadow-md shadow-emerald-500/10' 
+                          : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      {ratio.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowCropModal(false)}
+                  className="flex-1 px-4 py-4 rounded-2xl font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAutoCrop}
+                  className="flex-1 px-4 py-4 rounded-2xl font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
+                >
+                  Start Cropping
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Instructions Modal */}
-      {showInstructions && (
-        <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#111] rounded-3xl max-w-md w-full p-8 shadow-2xl border border-gray-200 dark:border-gray-800 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                <AlertCircle className="w-6 h-6 text-blue-500" /> How to Import
-              </h3>
-              <button onClick={() => setShowInstructions(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 p-2 rounded-full transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="space-y-8">
-              <div className="flex gap-4">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">1</div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Download a Sticker App</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">You need a third-party app like "Sticker Maker" or "Personal Stickers for WhatsApp" installed on your phone.</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">2</div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Open the File</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Tap the downloaded .wastickers file and choose to open it with your sticker app.</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">3</div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Add to WhatsApp</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Inside the sticker app, tap "Add to WhatsApp" to import your new pack!</p>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => setShowInstructions(false)}
-              className="w-full mt-10 px-4 py-3.5 rounded-xl font-semibold bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+      <AnimatePresence>
+        {showInstructions && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] max-w-md w-full p-8 shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 relative overflow-hidden"
             >
-              Got it, thanks!
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-bold tracking-tight flex items-center gap-3 text-zinc-900 dark:text-white">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                    <AlertCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  How to Import
+                </h3>
+                <button onClick={() => setShowInstructions(false)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 p-2.5 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-8">
+                <div className="flex gap-5">
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">1</div>
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">Download App</h4>
+                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">Install a third-party app like "Sticker Maker" or "Personal Stickers for WhatsApp".</p>
+                  </div>
+                </div>
+                <div className="flex gap-5">
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">2</div>
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">Open the File</h4>
+                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">Tap the downloaded .wastickers file and choose to open it with your sticker app.</p>
+                  </div>
+                </div>
+                <div className="flex gap-5">
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">3</div>
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">Add to WhatsApp</h4>
+                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">Inside the sticker app, tap "Add to WhatsApp" to import your new pack!</p>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowInstructions(false)}
+                className="w-full mt-10 px-4 py-4 rounded-2xl font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
+              >
+                Got it, thanks!
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
