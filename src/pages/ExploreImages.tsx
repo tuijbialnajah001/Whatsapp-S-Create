@@ -238,9 +238,10 @@ export default function ExploreImages() {
 
     const downloadedBlobs = await Promise.all(downloadTasks);
 
-    // Trigger file saves sequentially with a tiny delay to prevent browser from blocking them as spam
-    for (const item of downloadedBlobs) {
-      if (!item) continue;
+    // Trigger file saves synchronously so the browser natively queues them all at once.
+    // This prevents the download from stopping if the browser is minimized.
+    downloadedBlobs.forEach((item) => {
+      if (!item) return;
       
       const { img, i, blob } = item;
       const blobUrl = URL.createObjectURL(blob);
@@ -248,18 +249,19 @@ export default function ExploreImages() {
       const a = document.createElement('a');
       a.href = blobUrl;
       const safeSearchQuery = searchQuery ? searchQuery.replace(/[^a-z0-9\s]/gi, '_').trim() : 'image';
-      const uniqueId = img.id.replace(/[^a-z0-9]/gi, '').substring(0, 6);
-      a.download = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${uniqueId}.jpg`;
+      
+      // Generate a truly unique ID (random string) because img.id was just the URL, 
+      // causing the first 6 chars to always be "httpsw" for the same host.
+      const trueUniqueId = Math.random().toString(36).substring(2, 8);
+      a.download = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${i + 1}_${trueUniqueId}.jpg`;
       
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
-      URL.revokeObjectURL(blobUrl);
-      
-      // 100ms delay is usually enough to bypass browser multi-download blocking
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+      // Revoke the object URL after a short delay to ensure the browser has started the download
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    });
     
     setDownloading(false);
     setSelectedIds(new Set()); // Clear selection after successful download

@@ -152,12 +152,42 @@ async function startServer() {
     }
 
     try {
-      const imageResponse = await fetch(imageUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Referer": "https://duckduckgo.com/"
-        }
-      });
+      const urlObj = new URL(imageUrl);
+      
+      const tryFetch = async (customHeaders: any) => {
+        return await fetch(imageUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "image",
+            "sec-fetch-mode": "no-cors",
+            "sec-fetch-site": "cross-site",
+            ...customHeaders
+          }
+        });
+      };
+
+      // Strategy 1: Same origin referer
+      let imageResponse = await tryFetch({ "Referer": urlObj.origin + "/" });
+
+      // Strategy 2: No referer
+      if (!imageResponse.ok && (imageResponse.status === 403 || imageResponse.status === 401)) {
+        imageResponse = await tryFetch({});
+      }
+
+      // Strategy 3: Google referer
+      if (!imageResponse.ok && (imageResponse.status === 403 || imageResponse.status === 401)) {
+        imageResponse = await tryFetch({ "Referer": "https://www.google.com/" });
+      }
+
+      // Strategy 4: Bing referer
+      if (!imageResponse.ok && (imageResponse.status === 403 || imageResponse.status === 401)) {
+        imageResponse = await tryFetch({ "Referer": "https://www.bing.com/" });
+      }
 
       if (!imageResponse.ok) {
         throw new Error(`Failed to fetch image: ${imageResponse.status}`);
