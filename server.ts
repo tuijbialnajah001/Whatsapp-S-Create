@@ -173,25 +173,52 @@ async function startServer() {
       };
 
       // Strategy 1: Same origin referer
-      let imageResponse = await tryFetch({ "Referer": urlObj.origin + "/" });
+      let imageResponse: Response | null = null;
+      try {
+        imageResponse = await tryFetch({ "Referer": urlObj.origin + "/" });
+      } catch (e) {
+        // Ignore
+      }
 
       // Strategy 2: No referer
-      if (!imageResponse.ok && (imageResponse.status === 403 || imageResponse.status === 401)) {
-        imageResponse = await tryFetch({});
+      if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
+        try {
+          imageResponse = await tryFetch({});
+        } catch (e) {
+          // Ignore
+        }
       }
 
       // Strategy 3: Google referer
-      if (!imageResponse.ok && (imageResponse.status === 403 || imageResponse.status === 401)) {
-        imageResponse = await tryFetch({ "Referer": "https://www.google.com/" });
+      if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
+        try {
+          imageResponse = await tryFetch({ "Referer": "https://www.google.com/" });
+        } catch (e) {
+          // Ignore
+        }
       }
 
       // Strategy 4: Bing referer
-      if (!imageResponse.ok && (imageResponse.status === 403 || imageResponse.status === 401)) {
-        imageResponse = await tryFetch({ "Referer": "https://www.bing.com/" });
+      if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
+        try {
+          imageResponse = await tryFetch({ "Referer": "https://www.bing.com/" });
+        } catch (e) {
+          // Ignore fetch errors to try next strategy
+        }
       }
 
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+      // Strategy 5: Google Image Proxy (Ultimate Fallback)
+      if (!imageResponse || !imageResponse.ok) {
+        try {
+          const googleProxyUrl = `https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=${encodeURIComponent(imageUrl)}`;
+          imageResponse = await fetch(googleProxyUrl);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      if (!imageResponse || !imageResponse.ok) {
+        throw new Error(`Failed to fetch image: ${imageResponse ? imageResponse.status : 'Network Error'}`);
       }
 
       const contentType = imageResponse.headers.get("content-type");

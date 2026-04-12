@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import { 
   Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, 
   Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, 
-  Sparkles, ArrowRight, Trash2, Layers, Undo2, Redo2 
+  Sparkles, ArrowRight, Trash2, Layers, Undo2, Redo2, Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -472,23 +472,29 @@ export default function WhatsappSCreate() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2.5rem] opacity-10 group-hover:opacity-20 transition duration-500"></div>
-                <div className="relative glass-panel rounded-[2.5rem] p-20 text-center flex flex-col items-center border-2 border-dashed border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-colors">
-                  <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mb-8 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <Upload className="w-12 h-12" />
+                <div className="relative glass-panel rounded-[2.5rem] p-8 sm:p-12 text-center flex flex-col items-center border-2 border-dashed border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-colors">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <Upload className="w-8 h-8 sm:w-10 sm:h-10" />
                   </div>
-                  <h2 className="text-4xl font-bold mb-4 text-zinc-900 dark:text-white tracking-tight">Drop your images here</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400 mb-10 max-w-md mx-auto text-lg leading-relaxed">
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-zinc-900 dark:text-white tracking-tight">Drop your files here</h2>
+                  <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto text-sm sm:text-base leading-relaxed">
                     Upload photos or a ZIP file. We'll extract, smart-crop, and package them into WhatsApp stickers instantly.
                   </p>
-                  <button className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center gap-2">
-                    Browse Files <ArrowRight className="w-5 h-5" />
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-3 rounded-xl font-bold text-base transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center gap-2"
+                  >
+                    Browse Files <ArrowRight className="w-4 h-4" />
                   </button>
                   <input 
                     type="file" 
                     ref={fileInputRef} 
                     className="hidden" 
                     multiple 
-                    accept="image/*,.zip" 
+                    accept="image/*,.zip,application/zip,application/x-zip-compressed" 
                     onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
                   />
                 </div>
@@ -564,7 +570,7 @@ export default function WhatsappSCreate() {
                           onClick={() => fileInputRef.current?.click()}
                           className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Add More
+                          <Plus className="w-3.5 h-3.5" /> Add Files
                         </button>
                       </div>
                       
@@ -573,7 +579,7 @@ export default function WhatsappSCreate() {
                         ref={fileInputRef} 
                         className="hidden" 
                         multiple 
-                        accept="image/*,.zip" 
+                        accept="image/*,.zip,application/zip,application/x-zip-compressed" 
                         onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
                       />
                     </div>

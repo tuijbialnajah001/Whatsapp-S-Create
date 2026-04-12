@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Download, Loader2, CheckCircle2, Circle, CheckSquare, Square } from 'lucide-react';
+import { Search, Download, Loader2, CheckCircle2, Circle, CheckSquare, Square, Archive } from 'lucide-react';
 import { motion } from 'motion/react';
+import JSZip from 'jszip';
 
 // --- Global Cache for RAM & Browser Storage ---
 const CACHE_KEY = 'explore_images_state';
@@ -95,7 +96,7 @@ export default function ExploreImages() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(memoryCache.selectedIds);
-  const [downloading, setDownloading] = useState(false);
+  const [downloadState, setDownloadState] = useState<'none' | 'zip' | 'individual'>('none');
   const [hasSearched, setHasSearched] = useState(memoryCache.hasSearched);
 
   // Sync state to memory cache and session storage
@@ -217,9 +218,9 @@ export default function ExploreImages() {
     }
   };
 
-  const handleDownloadSelected = async () => {
+  const handleDownloadIndividually = async () => {
     if (selectedIds.size === 0) return;
-    setDownloading(true);
+    setDownloadState('individual');
     
     const selectedImgs = images.filter(img => selectedIds.has(img.id));
     
@@ -245,8 +246,65 @@ export default function ExploreImages() {
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     
-    setDownloading(false);
+    setDownloadState('none');
     setSelectedIds(new Set()); // Clear selection after successful download
+  };
+
+  const handleDownloadAsZip = async () => {
+    if (selectedIds.size === 0) return;
+    setDownloadState('zip');
+
+    try {
+      const selectedImgs = images.filter(img => selectedIds.has(img.id));
+      const zip = new JSZip();
+      
+      // Fetch all images in parallel for the ZIP
+      const downloadTasks = selectedImgs.map(async (img, i) => {
+        try {
+          const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(img.url)}`);
+          if (!response.ok) throw new Error("Failed to download image through proxy.");
+          const blob = await response.blob();
+          return { img, i, blob };
+        } catch (error) {
+          console.error('Failed to download', img.url, error);
+          return null;
+        }
+      });
+
+      const downloadedBlobs = await Promise.all(downloadTasks);
+
+      downloadedBlobs.forEach((item) => {
+        if (!item) return;
+        const { i, blob } = item;
+        const safeSearchQuery = searchQuery ? searchQuery.replace(/[^a-z0-9\s]/gi, '_').trim() : 'image';
+        const trueUniqueId = Math.random().toString(36).substring(2, 8);
+        const filename = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${i + 1}_${trueUniqueId}.jpg`;
+        zip.file(filename, blob);
+      });
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      // Use explicit MIME type and File constructor to help Android Download Manager
+      const explicitBlob = new Blob([zipBlob], { type: 'application/zip' });
+      const zipUrl = URL.createObjectURL(explicitBlob);
+
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      // Use standard characters for the ZIP filename to ensure it shows up in Android Recent Files
+      const safeSearchQuery = searchQuery ? searchQuery.replace(/[^a-zA-Z0-9]/g, '_').trim() : 'images';
+      a.download = `BJE_Clan_${safeSearchQuery}.zip`;
+
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => URL.revokeObjectURL(zipUrl), 1000);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error("Error creating ZIP:", error);
+      alert("Failed to create ZIP file.");
+    } finally {
+      setDownloadState('none');
+    }
   };
 
   return (
@@ -299,21 +357,32 @@ export default function ExploreImages() {
             </span>
           </div>
           
-          <button
-            onClick={handleDownloadSelected}
-            disabled={selectedIds.size === 0 || downloading}
-            className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-2.5 rounded-full font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:-translate-y-0.5"
-          >
-            {downloading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Downloading...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" /> Download Selected
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleDownloadAsZip}
+              disabled={selectedIds.size === 0 || downloadState !== 'none'}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-full font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:-translate-y-0.5"
+            >
+              {downloadState === 'zip' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+              Save as ZIP
+            </button>
+            <button
+              onClick={handleDownloadIndividually}
+              disabled={selectedIds.size === 0 || downloadState !== 'none'}
+              className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-5 py-2.5 rounded-full font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:-translate-y-0.5"
+            >
+              {downloadState === 'individual' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Download Files
+            </button>
+          </div>
         </div>
       )}
 
