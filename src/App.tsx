@@ -74,9 +74,12 @@ export default function App() {
       </header>
 
       <main className="relative z-10 pt-24 pb-20 min-h-screen flex flex-col">
-        <AnimatePresence mode="wait">
-          {activeTab === 'create' ? <WhatsappSCreate key="create" /> : <ExploreImages key="explore" />}
-        </AnimatePresence>
+        <div className={activeTab === 'create' ? 'flex flex-col flex-1' : 'hidden'}>
+          <WhatsappSCreate />
+        </div>
+        <div className={activeTab === 'explore' ? 'flex flex-col flex-1' : 'hidden'}>
+          <ExploreImages />
+        </div>
       </main>
 
       {/* Footer Branding */}
