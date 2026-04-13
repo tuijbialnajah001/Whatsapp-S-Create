@@ -5,7 +5,7 @@ import {
   Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, 
   Sparkles, ArrowRight, Trash2, Layers, Undo2, Redo2, Archive
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue } from 'motion/react';
 
 // Types
 interface UploadedImage {
@@ -40,56 +40,224 @@ const AUTHORS = [
   "Tuijbialnajah-frieren-paglu-flat-boobs-lover"
 ];
 
-const ImageGridItem = React.memo(({ img, removeImage }: { img: UploadedImage, removeImage: (id: string) => void }) => (
-  <motion.div 
-    layout
-    initial={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-    transition={{ 
-      type: "spring", 
-      stiffness: 500, 
-      damping: 30, 
-      mass: 1 
-    }}
-    className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md"
-  >
-    <img 
-      src={img.croppedUrl || img.previewUrl} 
-      alt="Preview" 
-      className="w-full h-full object-contain p-3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105"
-      loading="lazy"
-      decoding="async"
-    />
-    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+const ManualCropModal = ({ 
+  img, 
+  targetRatio, 
+  onClose, 
+  onSave 
+}: { 
+  img: UploadedImage; 
+  targetRatio: number; 
+  onClose: () => void; 
+  onSave: (cropX: number, cropY: number, cropW: number, cropH: number) => void;
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imgStyle, setImgStyle] = useState({ width: 0, height: 0 });
+  const [dragConstraints, setDragConstraints] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
+  
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const onLoad = () => {
+    if (!containerRef.current || !imgRef.current) return;
+    const container = containerRef.current.getBoundingClientRect();
+    const naturalW = imgRef.current.naturalWidth;
+    const naturalH = imgRef.current.naturalHeight;
     
-    <button 
-      onClick={(e) => {
-        e.stopPropagation();
-        removeImage(img.id);
+    const containerRatio = container.width / container.height;
+    const imgRatio = naturalW / naturalH;
+    
+    let renderW, renderH;
+    
+    if (imgRatio > containerRatio) {
+      renderH = container.height;
+      renderW = renderH * imgRatio;
+    } else {
+      renderW = container.width;
+      renderH = renderW / imgRatio;
+    }
+    
+    setImgStyle({ width: renderW, height: renderH });
+    
+    setDragConstraints({
+      top: container.height - renderH,
+      left: container.width - renderW,
+      right: 0,
+      bottom: 0
+    });
+    
+    // Center initially
+    x.set((container.width - renderW) / 2);
+    y.set((container.height - renderH) / 2);
+  };
+
+  const handleSave = () => {
+    if (!containerRef.current || !imgRef.current) return;
+    const tx = x.get();
+    const ty = y.get();
+
+    const container = containerRef.current.getBoundingClientRect();
+    const naturalW = imgRef.current.naturalWidth;
+    
+    const scale = naturalW / imgStyle.width;
+    
+    const cropX = Math.abs(tx) * scale;
+    const cropY = Math.abs(ty) * scale;
+    const cropW = container.width * scale;
+    const cropH = container.height * scale;
+    
+    onSave(cropX, cropY, cropW, cropH);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-zinc-900/90 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col border border-zinc-200/50 dark:border-zinc-800/50"
+      >
+        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+          <div>
+            <h3 className="font-bold text-xl text-zinc-900 dark:text-white">Adjust Image</h3>
+            <p className="text-xs text-zinc-500 mt-1">Drag to reposition</p>
+          </div>
+          <button onClick={onClose} className="p-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+        </div>
+        
+        <div className="p-8 flex justify-center bg-zinc-50 dark:bg-zinc-950">
+          <div 
+            ref={containerRef} 
+            className="relative overflow-hidden bg-checkerboard rounded-2xl shadow-inner border border-zinc-200 dark:border-zinc-800"
+            style={{ 
+              width: '100%', 
+              aspectRatio: targetRatio,
+              maxWidth: '300px',
+              maxHeight: '400px'
+            }}
+          >
+            <motion.img
+              ref={imgRef}
+              src={img.previewUrl}
+              onLoad={onLoad}
+              drag
+              dragConstraints={dragConstraints}
+              dragElastic={0}
+              dragMomentum={false}
+              style={{
+                x, y,
+                width: imgStyle.width,
+                height: imgStyle.height,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                maxWidth: 'none'
+              }}
+              className="origin-top-left cursor-grab active:cursor-grabbing"
+            />
+          </div>
+        </div>
+        
+        <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
+          <button onClick={onClose} className="px-6 py-3 font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSave} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5">Save</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const ImageGridItem = React.memo(({ img, removeImage, onLongPress }: { img: UploadedImage, removeImage: (id: string) => void, onLongPress: (img: UploadedImage) => void }) => {
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startPress = () => {
+    timerRef.current = setTimeout(() => {
+      onLongPress(img);
+    }, 500);
+  };
+
+  const cancelPress = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  return (
+    <motion.div 
+      layout
+      onPointerDown={startPress}
+      onPointerUp={cancelPress}
+      onPointerLeave={cancelPress}
+      onPointerCancel={cancelPress}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 500, 
+        damping: 30, 
+        mass: 1 
       }}
-      className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 md:opacity-0 md:group-hover:opacity-100"
-      title="Remove Sticker"
+      className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md cursor-pointer touch-none"
     >
-      <X className="w-3.5 h-3.5" />
-    </button>
-  </motion.div>
-));
+      <img 
+        src={img.croppedUrl || img.previewUrl} 
+        alt="Preview" 
+        className="w-full h-full object-contain p-3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+        loading="lazy"
+        decoding="async"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+      
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          removeImage(img.id);
+        }}
+        className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 md:opacity-0 md:group-hover:opacity-100"
+        title="Remove Sticker"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </motion.div>
+  );
+});
+
+const memoryCache = {
+  step: 1 as 1 | 2 | 3,
+  images: [] as UploadedImage[],
+  history: [[]] as UploadedImage[][],
+  historyPointer: 0,
+  packs: [] as Pack[],
+  generatedPacks: [] as GeneratedPack[],
+};
 
 export default function WhatsappSCreate() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [history, setHistory] = useState<UploadedImage[][]>([[]]);
-  const [historyPointer, setHistoryPointer] = useState(0);
+  const [step, setStep] = useState<1 | 2 | 3>(memoryCache.step);
+  const [images, setImages] = useState<UploadedImage[]>(memoryCache.images);
+  const [history, setHistory] = useState<UploadedImage[][]>(memoryCache.history);
+  const [historyPointer, setHistoryPointer] = useState(memoryCache.historyPointer);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [packs, setPacks] = useState<Pack[]>([]);
-  const [generatedPacks, setGeneratedPacks] = useState<GeneratedPack[]>([]);
+  const [packs, setPacks] = useState<Pack[]>(memoryCache.packs);
+  const [generatedPacks, setGeneratedPacks] = useState<GeneratedPack[]>(memoryCache.generatedPacks);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropRatio, setCropRatio] = useState<number>(1);
   const [showInstructions, setShowInstructions] = useState(false);
   const [croppingStats, setCroppingStats] = useState({ isActive: false, total: 0, done: 0 });
+  const [adjustingImage, setAdjustingImage] = useState<UploadedImage | null>(null);
+
+  useEffect(() => {
+    memoryCache.step = step;
+    memoryCache.images = images;
+    memoryCache.history = history;
+    memoryCache.historyPointer = historyPointer;
+    memoryCache.packs = packs;
+    memoryCache.generatedPacks = generatedPacks;
+  }, [step, images, history, historyPointer, packs, generatedPacks]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -321,6 +489,38 @@ export default function WhatsappSCreate() {
     }
   };
 
+  const handleManualCropSave = async (cropX: number, cropY: number, cropW: number, cropH: number) => {
+    if (!adjustingImage) return;
+    
+    // Generate new croppedUrl
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = adjustingImage.previewUrl;
+    
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = cropW;
+    canvas.height = cropH;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const croppedUrl = URL.createObjectURL(blob);
+          setImages(current => current.map(item => 
+            item.id === adjustingImage.id ? { ...item, croppedUrl } : item
+          ));
+        }
+        setAdjustingImage(null);
+      }, 'image/webp', 0.9);
+    } else {
+      setAdjustingImage(null);
+    }
+  };
   const handleAutoCrop = async () => {
     setShowCropModal(false);
     if (!workerRef.current || images.length === 0) return;
@@ -595,7 +795,12 @@ export default function WhatsappSCreate() {
                     >
                       <AnimatePresence mode="popLayout">
                         {images.map((img) => (
-                          <ImageGridItem key={img.id} img={img} removeImage={removeImage} />
+                          <ImageGridItem 
+                            key={img.id} 
+                            img={img} 
+                            removeImage={removeImage} 
+                            onLongPress={(img) => setAdjustingImage(img)}
+                          />
                         ))}
                       </AnimatePresence>
                     </motion.div>
@@ -805,6 +1010,18 @@ export default function WhatsappSCreate() {
               )}
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Manual Crop Modal */}
+      <AnimatePresence>
+        {adjustingImage && (
+          <ManualCropModal
+            img={adjustingImage}
+            targetRatio={cropRatio}
+            onClose={() => setAdjustingImage(null)}
+            onSave={handleManualCropSave}
+          />
         )}
       </AnimatePresence>
 
