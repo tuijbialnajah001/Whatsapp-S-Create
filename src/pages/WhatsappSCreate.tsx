@@ -154,14 +154,17 @@ export default function WhatsappSCreate() {
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (file.type.startsWith('image/')) {
+      const isZip = file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed' || (file.type === 'application/octet-stream' && file.name.toLowerCase().endsWith('.zip'));
+      const isImage = file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i);
+      
+      if (isZip) {
+        zipFiles.push(file);
+      } else if (isImage) {
         standardImages.push({
           id: Math.random().toString(36).substring(7) + Date.now(),
           file,
           previewUrl: URL.createObjectURL(file),
         });
-      } else if (file.name.endsWith('.zip')) {
-        zipFiles.push(file);
       }
     }
     
@@ -174,7 +177,7 @@ export default function WhatsappSCreate() {
     for (const zipFile of zipFiles) {
       try {
         const zip = await JSZip.loadAsync(zipFile);
-        const zipEntries = Object.values(zip.files).filter(f => !f.dir && f.name.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i));
+        const zipEntries = Object.values(zip.files).filter(f => !f.dir && f.name.match(/\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i));
         const chunkSize = 15;
         
         for (let i = 0; i < zipEntries.length; i += chunkSize) {
@@ -230,7 +233,7 @@ export default function WhatsappSCreate() {
     });
   };
 
-  const convertToWebP = (imgUrl: string, size: number): Promise<Blob> => {
+  const convertToWebP = (imgUrl: string, size: number, mimeType: string = 'image/webp'): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "Anonymous";
@@ -253,7 +256,7 @@ export default function WhatsappSCreate() {
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
           else reject(new Error("Canvas to Blob failed"));
-        }, 'image/webp', 0.8);
+        }, mimeType, 0.8);
       };
       img.onerror = reject;
       img.src = imgUrl;
@@ -274,14 +277,14 @@ export default function WhatsappSCreate() {
       zip.file('author.txt', pack.settings.author);
 
       if (pack.images.length > 0) {
-        // Tray icon from first image
-        const trayBlob = await convertToWebP(pack.images[0].croppedUrl || pack.images[0].previewUrl, 96);
+        // Tray icon from first image - MUST be PNG for .wastickers compatibility
+        const trayBlob = await convertToWebP(pack.images[0].croppedUrl || pack.images[0].previewUrl, 96, 'image/png');
         zip.file('tray.png', trayBlob);
 
-        // Process all images
+        // Process all images - MUST be WebP
         for (let i = 0; i < pack.images.length; i++) {
           const img = pack.images[i];
-          const webpBlob = await convertToWebP(img.croppedUrl || img.previewUrl, 512);
+          const webpBlob = await convertToWebP(img.croppedUrl || img.previewUrl, 512, 'image/webp');
           zip.file(`${i + 1}.webp`, webpBlob);
           
           processedImages++;
@@ -303,16 +306,19 @@ export default function WhatsappSCreate() {
     setStep(3);
   };
 
-  const downloadPack = (pack: GeneratedPack) => {
+  const downloadPack = (pack: GeneratedPack, asZip: boolean = false) => {
     const url = URL.createObjectURL(pack.blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${pack.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.wastickers`;
+    const safeName = pack.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    a.download = asZip ? `${safeName}_stickers.zip` : `${safeName}.wastickers`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setShowInstructions(true);
+    if (!asZip) {
+      setShowInstructions(true);
+    }
   };
 
   const handleAutoCrop = async () => {
@@ -494,7 +500,7 @@ export default function WhatsappSCreate() {
                     ref={fileInputRef} 
                     className="hidden" 
                     multiple 
-                    accept="image/*,.zip,application/zip,application/x-zip-compressed" 
+                    accept="*/*" 
                     onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
                   />
                 </div>
@@ -551,11 +557,7 @@ export default function WhatsappSCreate() {
                       {/* Action Buttons Group */}
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={() => {
-                            if (confirm("Are you sure you want to clear all stickers?")) {
-                              addToHistory([]);
-                            }
-                          }}
+                          onClick={() => addToHistory([])}
                           className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shadow-sm active:scale-95"
                         >
                           <Trash2 className="w-3.5 h-3.5" /> Clear All
@@ -579,7 +581,7 @@ export default function WhatsappSCreate() {
                         ref={fileInputRef} 
                         className="hidden" 
                         multiple 
-                        accept="image/*,.zip,application/zip,application/x-zip-compressed" 
+                        accept="*/*" 
                         onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
                       />
                     </div>
@@ -722,12 +724,21 @@ export default function WhatsappSCreate() {
                         <p className="text-sm font-medium text-zinc-500">.wastickers format</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => downloadPack(pack)}
-                      className="flex items-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-3 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                    >
-                      <Download className="w-4 h-4" /> Download
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button 
+                        onClick={() => downloadPack(pack, true)}
+                        className="flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white px-4 py-3 rounded-xl font-bold transition-all shadow-sm hover:shadow-md"
+                        title="Download as standard ZIP containing .webp images"
+                      >
+                        <Archive className="w-4 h-4" /> ZIP (.webp)
+                      </button>
+                      <button 
+                        onClick={() => downloadPack(pack, false)}
+                        className="flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-3 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                      >
+                        <Download className="w-4 h-4" /> WhatsApp Pack
+                      </button>
+                    </div>
                   </motion.div>
                 ))}
               </div>

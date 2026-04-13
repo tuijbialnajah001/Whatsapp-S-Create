@@ -242,8 +242,8 @@ export default function ExploreImages() {
       a.click();
       document.body.removeChild(a);
       
-      // Small delay to ensure the browser registers each download separately
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Small delay to ensure the browser registers each download separately and doesn't block them as spam
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     
     setDownloadState('none');
@@ -258,20 +258,43 @@ export default function ExploreImages() {
       const selectedImgs = images.filter(img => selectedIds.has(img.id));
       const zip = new JSZip();
       
-      // Fetch all images in parallel for the ZIP
-      const downloadTasks = selectedImgs.map(async (img, i) => {
-        try {
-          const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(img.url)}`);
-          if (!response.ok) throw new Error("Failed to download image through proxy.");
-          const blob = await response.blob();
-          return { img, i, blob };
-        } catch (error) {
-          console.error('Failed to download', img.url, error);
-          return null;
+      // Fetch images in batches to prevent network congestion and rate limiting
+      const downloadedBlobs = [];
+      const batchSize = 5;
+      
+      for (let i = 0; i < selectedImgs.length; i += batchSize) {
+        const batch = selectedImgs.slice(i, i + batchSize);
+        const batchTasks = batch.map(async (img, batchIndex) => {
+          const globalIndex = i + batchIndex;
+          try {
+            const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(img.url)}`);
+            if (!response.ok) throw new Error("Failed to download image through proxy.");
+            const blob = await response.blob();
+            return { img, i: globalIndex, blob };
+          } catch (error) {
+            console.error('Failed to download', img.url, error);
+            // Retry once for failed downloads
+            try {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const retryResponse = await fetch(`/api/proxy-image?url=${encodeURIComponent(img.url)}`);
+              if (!retryResponse.ok) throw new Error("Retry failed.");
+              const blob = await retryResponse.blob();
+              return { img, i: globalIndex, blob };
+            } catch (retryError) {
+              console.error('Retry also failed for', img.url, retryError);
+              return null;
+            }
+          }
+        });
+        
+        const batchResults = await Promise.all(batchTasks);
+        downloadedBlobs.push(...batchResults);
+        
+        // Small delay between batches
+        if (i + batchSize < selectedImgs.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
-      });
-
-      const downloadedBlobs = await Promise.all(downloadTasks);
+      }
 
       downloadedBlobs.forEach((item) => {
         if (!item) return;
