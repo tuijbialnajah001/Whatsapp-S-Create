@@ -116,6 +116,7 @@ const ManualCropModal = ({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ type: "spring", damping: 25, stiffness: 400 }}
         className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col border border-zinc-200/50 dark:border-zinc-800/50"
       >
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
@@ -174,7 +175,7 @@ const ImageGridItem = React.memo(({ img, removeImage, onLongPress }: { img: Uplo
   const startPress = () => {
     timerRef.current = setTimeout(() => {
       onLongPress(img);
-    }, 500);
+    }, 250); // Reduced from 500ms to 250ms for faster response
   };
 
   const cancelPress = () => {
@@ -191,6 +192,7 @@ const ImageGridItem = React.memo(({ img, removeImage, onLongPress }: { img: Uplo
       onPointerUp={cancelPress}
       onPointerLeave={cancelPress}
       onPointerCancel={cancelPress}
+      onContextMenu={(e) => e.preventDefault()} // Prevent native context menu on mobile
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
@@ -200,6 +202,7 @@ const ImageGridItem = React.memo(({ img, removeImage, onLongPress }: { img: Uplo
         damping: 30, 
         mass: 1 
       }}
+      style={{ WebkitTouchCallout: 'none', userSelect: 'none' }} // Prevent text selection/callout
       className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md cursor-pointer touch-none"
     >
       <img 
@@ -492,10 +495,14 @@ export default function WhatsappSCreate() {
   const handleManualCropSave = async (cropX: number, cropY: number, cropW: number, cropH: number) => {
     if (!adjustingImage) return;
     
-    // Generate new croppedUrl
+    // Capture the image reference and close the modal immediately for a snappy UI
+    const currentImg = adjustingImage;
+    setAdjustingImage(null);
+    
+    // Generate new croppedUrl in the background
     const img = new Image();
     img.crossOrigin = "Anonymous";
-    img.src = adjustingImage.previewUrl;
+    img.src = currentImg.previewUrl;
     
     await new Promise((resolve) => {
       img.onload = resolve;
@@ -512,13 +519,10 @@ export default function WhatsappSCreate() {
         if (blob) {
           const croppedUrl = URL.createObjectURL(blob);
           setImages(current => current.map(item => 
-            item.id === adjustingImage.id ? { ...item, croppedUrl } : item
+            item.id === currentImg.id ? { ...item, croppedUrl } : item
           ));
         }
-        setAdjustingImage(null);
       }, 'image/webp', 0.9);
-    } else {
-      setAdjustingImage(null);
     }
   };
   const handleAutoCrop = async () => {
