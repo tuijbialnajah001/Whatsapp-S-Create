@@ -1,6 +1,6 @@
 {
-  "name": "WA-S-Create",
-  "short_name": "WA-S-Create",
+  "name": "wsgen",
+  "short_name": "wsgen",
   "description": "WhatsApp Sticker Generator",
   "start_url": "/",
   "display": "standalone",
