@@ -16,9 +16,9 @@ let memoryCache = {
 
 let queryCache: Record<string, any[]> = {};
 
-// Load from session storage on initial script execution
+// Load from local storage on initial script execution
 try {
-  const savedState = sessionStorage.getItem(CACHE_KEY);
+  const savedState = localStorage.getItem(CACHE_KEY);
   if (savedState) {
     const parsed = JSON.parse(savedState);
     memoryCache.images = parsed.images || [];
@@ -27,7 +27,7 @@ try {
     memoryCache.selectedIds = new Set(parsed.selectedIds || []);
   }
 
-  const savedQueries = sessionStorage.getItem(QUERY_CACHE_KEY);
+  const savedQueries = localStorage.getItem(QUERY_CACHE_KEY);
   if (savedQueries) {
     queryCache = JSON.parse(savedQueries);
   }
@@ -107,7 +107,7 @@ export default function ExploreImages() {
     memoryCache.selectedIds = selectedIds;
 
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
         images,
         searchQuery,
         hasSearched,
@@ -176,7 +176,7 @@ export default function ExploreImages() {
           // Update query cache
           queryCache[normalizedQuery] = currentBatch;
           try {
-            sessionStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(queryCache));
+            localStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(queryCache));
           } catch (e) {}
         } else if (i === 0) {
           throw new Error("No images found for this query.");

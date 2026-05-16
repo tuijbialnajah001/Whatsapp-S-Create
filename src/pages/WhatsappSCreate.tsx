@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import JSZip from 'jszip';
+import { get, set } from 'idb-keyval';
 import { 
   Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, 
   Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, 
@@ -13,6 +14,7 @@ interface UploadedImage {
   file: File;
   previewUrl: string;
   croppedUrl?: string; // If cropped
+  croppedBlob?: Blob; // For persistence
   isCropping?: boolean;
 }
 
@@ -252,15 +254,69 @@ export default function WhatsappSCreate() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [croppingStats, setCroppingStats] = useState({ isActive: false, total: 0, done: 0 });
   const [adjustingImage, setAdjustingImage] = useState<UploadedImage | null>(null);
+  const [isRestoring, setIsRestoring] = useState(true);
 
   useEffect(() => {
+    const restoreFromIDB = async () => {
+      try {
+        if (memoryCache.images.length > 0) {
+          setIsRestoring(false);
+          return;
+        }
+
+        const idbState = await get('whatsapp_s_create_state');
+        if (idbState) {
+          const restoredImages = (idbState.images || []).map((img: any) => ({
+            id: img.id,
+            file: img.file,
+            previewUrl: img.file ? URL.createObjectURL(img.file) : '',
+            croppedBlob: img.croppedBlob,
+            croppedUrl: img.croppedBlob ? URL.createObjectURL(img.croppedBlob) : undefined
+          }));
+          
+          memoryCache.images = restoredImages;
+          memoryCache.step = idbState.step || 1;
+          memoryCache.history = [restoredImages]; // History is skipped to save IDB space
+          memoryCache.historyPointer = 0;
+          memoryCache.packs = idbState.packs || [];
+          memoryCache.generatedPacks = idbState.generatedPacks || [];
+          
+          setImages(memoryCache.images);
+          setHistory(memoryCache.history);
+          setHistoryPointer(memoryCache.historyPointer);
+          setStep(memoryCache.step);
+          setPacks(memoryCache.packs);
+          setGeneratedPacks(memoryCache.generatedPacks);
+        }
+      } catch(e) {
+        console.error("Failed to restore state", e);
+      } finally {
+        setIsRestoring(false);
+      }
+    };
+    restoreFromIDB();
+  }, []);
+
+  useEffect(() => {
+    if (isRestoring) return;
     memoryCache.step = step;
     memoryCache.images = images;
     memoryCache.history = history;
     memoryCache.historyPointer = historyPointer;
     memoryCache.packs = packs;
     memoryCache.generatedPacks = generatedPacks;
-  }, [step, images, history, historyPointer, packs, generatedPacks]);
+
+    set('whatsapp_s_create_state', {
+      step,
+      images: images.map(img => ({
+        id: img.id,
+        file: img.file,
+        croppedBlob: img.croppedBlob
+      })),
+      packs,
+      generatedPacks
+    }).catch(e => console.error("Failed to save state to IDB", e));
+  }, [step, images, history, historyPointer, packs, generatedPacks, isRestoring]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -519,7 +575,7 @@ export default function WhatsappSCreate() {
         if (blob) {
           const croppedUrl = URL.createObjectURL(blob);
           setImages(current => current.map(item => 
-            item.id === currentImg.id ? { ...item, croppedUrl } : item
+            item.id === currentImg.id ? { ...item, croppedUrl, croppedBlob: blob } : item
           ));
         }
       }, 'image/webp', 0.9);
@@ -584,7 +640,7 @@ export default function WhatsappSCreate() {
                   cropCanvas.toBlob((blob) => {
                     if (blob) {
                       const croppedUrl = URL.createObjectURL(blob);
-                      setImages(current => current.map(item => item.id === img.id ? { ...item, croppedUrl } : item));
+                      setImages(current => current.map(item => item.id === img.id ? { ...item, croppedUrl, croppedBlob: blob } : item));
                     }
                     resolveWorker();
                   }, 'image/webp', 0.9);
@@ -616,6 +672,15 @@ export default function WhatsappSCreate() {
 
     setTimeout(() => setCroppingStats({ isActive: false, total: 0, done: 0 }), 500);
   };
+
+  if (isRestoring) {
+    return (
+      <div className="w-full flex-1 flex flex-col items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+        <p className="text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">Restoring your workspace...</p>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
