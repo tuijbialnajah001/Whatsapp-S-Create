@@ -935,17 +935,10 @@ export default function WhatsappSCreate() {
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <button 
-                        onClick={() => downloadPack(pack, true)}
-                        className="flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white px-4 py-3 rounded-xl font-bold transition-all shadow-sm hover:shadow-md"
-                        title="Download as standard ZIP containing .webp images"
-                      >
-                        <Archive className="w-4 h-4" /> ZIP (.webp)
-                      </button>
-                      <button 
                         onClick={() => downloadPack(pack, false)}
-                        className="flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-3 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                        className="flex-1 flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-4 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                       >
-                        <Download className="w-4 h-4" /> WhatsApp Pack
+                        <Download className="w-5 h-5" /> Download Pack
                       </button>
                     </div>
                   </motion.div>

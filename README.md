@@ -1,20 +1,14 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# WA-S-Create
+## Powered by 𝙱𝙹𝙴 ~ Clan
 
-# Run and deploy your AI Studio app
+Welcome to WA-S-Create, the ultimate WhatsApp Sticker Generator crafted by **𝙱𝙹𝙴 ~ Clan**. 
 
-This contains everything you need to run your app locally.
+Easily turn your images or ZIP files of images into installable `.wastickers` packs for WhatsApp in seconds!
 
-View your app in AI Studio: https://ai.studio/apps/fd34ea68-a6e5-4fc2-a7c8-072477b217b6
+### Features
+* **Smart Cropping:** Automatically detects and extracts regions of interest from uploaded images.
+* **Instant Conversion:** Compiles the selected images into native `.wastickers` packages instantly!
+* **Zip File Support:** Drop a `.zip` file of image components to bulk-import and convert.
+* **Sleek UI:** Clean and stunning aesthetic built from the ground up for maximum visual appeal.
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Built for the community, by **𝙱𝙹𝙴 ~ Clan**. Enjoy the seamless sticker creating experience without any clutter.
