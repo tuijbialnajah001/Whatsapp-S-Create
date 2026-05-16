@@ -3,16 +3,52 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WhatsappSCreate from './pages/WhatsappSCreate';
 import ExploreImages from './pages/ExploreImages';
-import { Sparkles, Image as ImageIcon, Sticker, Bug, X, Send } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Sticker, Bug, X, Send, Download } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'create' | 'explore'>('create');
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [bugDescription, setBugDescription] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch((err) => {
+          console.log('SW registration failed: ', err);
+        });
+      });
+    }
+
+    // Handle PWA install prompt
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   const handleBugSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +66,21 @@ export default function App() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
       {/* Ambient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-200/20 via-zinc-50 to-zinc-50 dark:from-emerald-900/20 dark:via-zinc-950 dark:to-zinc-950"></div>
+
+      {/* PWA Install Button */}
+      <AnimatePresence>
+        {isInstallable && (
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            onClick={handleInstallClick}
+            className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95 text-sm"
+          >
+            <Download className="w-4 h-4" /> <span className="hidden sm:inline">Install App</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Bug Report Button */}
       <button
