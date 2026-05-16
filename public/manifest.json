@@ -4,8 +4,8 @@
   "description": "WhatsApp Sticker Generator",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#10b981",
+  "background_color": "#1c1c1e",
+  "theme_color": "#1c1c1e",
   "icons": [
     {
       "src": "/favicon.svg",
