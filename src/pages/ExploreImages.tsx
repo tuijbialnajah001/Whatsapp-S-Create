@@ -460,7 +460,7 @@ export default function ExploreImages() {
             <Search className="w-10 h-10 text-emerald-500" />
           </div>
           <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Search to explore</h3>
-          <p className="text-zinc-500 max-w-md">Enter a keyword above to find high-quality images.</p>
+          <p className="text-zinc-500 max-w-md">This section is under development phase.</p>
         </div>
       )}
     </motion.div>
