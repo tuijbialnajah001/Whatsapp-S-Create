@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Film,
@@ -10,6 +10,7 @@ import {
   ArrowRight,
   X,
   Play,
+  CheckCircle2,
   Package,
 } from "lucide-react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
@@ -27,8 +28,29 @@ interface VideoItem {
 
 export default function VideoStickerCreate() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isConverting, setIsConverting] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (videos.length > 0 && step === 1) {
+      setStep(2);
+    } else if (videos.length === 0 && step === 2) {
+      setStep(1);
+    }
+
+    if (step === 2 && !isConverting && videos.length > 0) {
+      const pendingCount = videos.filter((v) => v.status === "pending").length;
+      const processingCount = videos.filter(
+        (v) => v.status === "processing",
+      ).length;
+      const doneCount = videos.filter((v) => v.status === "done").length;
+
+      if (pendingCount === 0 && processingCount === 0 && doneCount > 0) {
+        setStep(3);
+      }
+    }
+  }, [videos, step, isConverting]);
 
   const ffmpegRef = useRef(new FFmpeg());
 
@@ -263,9 +285,9 @@ export default function VideoStickerCreate() {
         )}
 
         <AnimatePresence mode="wait">
-          {videos.length === 0 ? (
+          {step === 1 && (
             <motion.div
-              key="upload"
+              key="step1"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -310,9 +332,11 @@ export default function VideoStickerCreate() {
                 </div>
               </motion.div>
             </motion.div>
-          ) : (
+          )}
+
+          {step === 2 && (
             <motion.div
-              key="processing"
+              key="step2"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -339,18 +363,6 @@ export default function VideoStickerCreate() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {doneCount > 0 && (
-                      <button
-                        onClick={downloadAll}
-                        className="px-5 py-2.5 rounded-xl font-bold text-white bg-zinc-900 dark:bg-white dark:text-zinc-900 hover:scale-105 transition-transform flex items-center gap-2"
-                      >
-                        <Package className="w-4 h-4" />
-                        {doneCount > 1
-                          ? `Download ${doneCount} Stickers (ZIP)`
-                          : "Download Sticker"}
-                      </button>
-                    )}
-
                     {pendingCount > 0 && (
                       <button
                         onClick={processAll}
@@ -450,6 +462,50 @@ export default function VideoStickerCreate() {
                     ))}
                   </AnimatePresence>
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-2xl mx-auto mt-12 text-center glass-panel p-12 rounded-[3rem]"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", bounce: 0.5 }}
+                className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-tr from-emerald-400 to-teal-500 text-white rounded-full mb-8 shadow-2xl shadow-emerald-500/30"
+              >
+                <CheckCircle2 className="w-14 h-14" />
+              </motion.div>
+              <h2 className="text-5xl font-extrabold mb-4 tracking-tight text-zinc-900 dark:text-white">
+                Ready to Share!
+              </h2>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-12 text-lg">
+                Your animated stickers are ready. Download them and import
+                directly into WhatsApp.
+              </p>
+
+              <div className="flex flex-col gap-4 max-w-sm mx-auto">
+                <button
+                  onClick={downloadAll}
+                  className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-4 px-8 rounded-full font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-3 shadow-xl"
+                >
+                  <Package className="w-6 h-6" />
+                  Download ZIP
+                </button>
+                <button
+                  onClick={() => {
+                    setVideos([]);
+                    setStep(1);
+                  }}
+                  className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white py-4 px-8 rounded-full font-bold text-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:scale-105 transition-all"
+                >
+                  Create More
+                </button>
               </div>
             </motion.div>
           )}
