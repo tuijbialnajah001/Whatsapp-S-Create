@@ -1,12 +1,28 @@
-import React, { useState, useRef, useEffect } from 'react';
-import JSZip from 'jszip';
-import { get, set } from 'idb-keyval';
-import { 
-  Upload, X, CheckCircle2, AlertCircle, Download, MessageCircle, 
-  Briefcase, Plus, Crop, Loader2, Settings2, Image as ImageIcon, 
-  Sparkles, ArrowRight, Trash2, Layers, Undo2, Redo2, Archive
-} from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue } from 'motion/react';
+import React, { useState, useRef, useEffect } from "react";
+import JSZip from "jszip";
+import { get, set } from "idb-keyval";
+import {
+  Upload,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  MessageCircle,
+  Briefcase,
+  Plus,
+  Crop,
+  Loader2,
+  Settings2,
+  Image as ImageIcon,
+  Sparkles,
+  ArrowRight,
+  Trash2,
+  Layers,
+  Undo2,
+  Redo2,
+  Archive,
+} from "lucide-react";
+import { motion, AnimatePresence, useMotionValue } from "motion/react";
 
 // Types
 interface UploadedImage {
@@ -39,25 +55,30 @@ const AUTHORS = [
   "Powered by 𝙱𝙹𝙴 ~ Clan",
   "ͲႮᏆᎫᏴᏆᎪᏞΝΑᎫΑΉ·Kҽɳƈԋσ Aʅʅιαɳƈҽ",
   "𝗚𝗨𝗬 𝗖𝗥𝗜𝗠𝗦𝗢𝗡 ~ 𝗢𝗖𝗧Λ𝗚𝗥Λ𝗠",
-  "Tuijbialnajah-frieren-paglu-flat-boobs-lover"
+  "Tuijbialnajah-frieren-paglu-flat-boobs-lover",
 ];
 
-const ManualCropModal = ({ 
-  img, 
-  targetRatio, 
-  onClose, 
-  onSave 
-}: { 
-  img: UploadedImage; 
-  targetRatio: number; 
-  onClose: () => void; 
+const ManualCropModal = ({
+  img,
+  targetRatio,
+  onClose,
+  onSave,
+}: {
+  img: UploadedImage;
+  targetRatio: number;
+  onClose: () => void;
   onSave: (cropX: number, cropY: number, cropW: number, cropH: number) => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgStyle, setImgStyle] = useState({ width: 0, height: 0 });
-  const [dragConstraints, setDragConstraints] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
-  
+  const [dragConstraints, setDragConstraints] = useState({
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  });
+
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
@@ -66,12 +87,12 @@ const ManualCropModal = ({
     const container = containerRef.current.getBoundingClientRect();
     const naturalW = imgRef.current.naturalWidth;
     const naturalH = imgRef.current.naturalHeight;
-    
+
     const containerRatio = container.width / container.height;
     const imgRatio = naturalW / naturalH;
-    
+
     let renderW, renderH;
-    
+
     if (imgRatio > containerRatio) {
       renderH = container.height;
       renderW = renderH * imgRatio;
@@ -79,16 +100,16 @@ const ManualCropModal = ({
       renderW = container.width;
       renderH = renderW / imgRatio;
     }
-    
+
     setImgStyle({ width: renderW, height: renderH });
-    
+
     setDragConstraints({
       top: container.height - renderH,
       left: container.width - renderW,
       right: 0,
-      bottom: 0
+      bottom: 0,
     });
-    
+
     // Center initially
     x.set((container.width - renderW) / 2);
     y.set((container.height - renderH) / 2);
@@ -101,20 +122,20 @@ const ManualCropModal = ({
 
     const container = containerRef.current.getBoundingClientRect();
     const naturalW = imgRef.current.naturalWidth;
-    
+
     const scale = naturalW / imgStyle.width;
-    
+
     const cropX = Math.abs(tx) * scale;
     const cropY = Math.abs(ty) * scale;
     const cropW = container.width * scale;
     const cropH = container.height * scale;
-    
+
     onSave(cropX, cropY, cropW, cropH);
   };
 
   return (
     <div className="fixed inset-0 bg-zinc-900/90 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-sm">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -123,21 +144,28 @@ const ManualCropModal = ({
       >
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
           <div>
-            <h3 className="font-bold text-xl text-zinc-900 dark:text-white">Adjust Image</h3>
+            <h3 className="font-bold text-xl text-zinc-900 dark:text-white">
+              Adjust Image
+            </h3>
             <p className="text-xs text-zinc-500 mt-1">Drag to reposition</p>
           </div>
-          <button onClick={onClose} className="p-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+          <button
+            onClick={onClose}
+            className="p-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        
+
         <div className="p-8 flex justify-center bg-zinc-50 dark:bg-zinc-950">
-          <div 
-            ref={containerRef} 
+          <div
+            ref={containerRef}
             className="relative overflow-hidden bg-checkerboard rounded-2xl shadow-inner border border-zinc-200 dark:border-zinc-800"
-            style={{ 
-              width: '100%', 
+            style={{
+              width: "100%",
               aspectRatio: targetRatio,
-              maxWidth: '300px',
-              maxHeight: '400px'
+              maxWidth: "300px",
+              maxHeight: "400px",
             }}
           >
             <motion.img
@@ -149,86 +177,107 @@ const ManualCropModal = ({
               dragElastic={0}
               dragMomentum={false}
               style={{
-                x, y,
+                x,
+                y,
                 width: imgStyle.width,
                 height: imgStyle.height,
-                position: 'absolute',
+                position: "absolute",
                 top: 0,
                 left: 0,
-                maxWidth: 'none'
+                maxWidth: "none",
               }}
               className="origin-top-left cursor-grab active:cursor-grabbing"
             />
           </div>
         </div>
-        
+
         <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-3 font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">Cancel</button>
-          <button onClick={handleSave} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5">Save</button>
+          <button
+            onClick={onClose}
+            className="px-6 py-3 font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
+          >
+            Save
+          </button>
         </div>
       </motion.div>
     </div>
   );
 };
 
-const ImageGridItem = React.memo(({ img, removeImage, onLongPress }: { img: UploadedImage, removeImage: (id: string) => void, onLongPress: (img: UploadedImage) => void }) => {
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+const ImageGridItem = React.memo(
+  ({
+    img,
+    removeImage,
+    onLongPress,
+  }: {
+    img: UploadedImage;
+    removeImage: (id: string) => void;
+    onLongPress: (img: UploadedImage) => void;
+  }) => {
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const startPress = () => {
-    timerRef.current = setTimeout(() => {
-      onLongPress(img);
-    }, 250); // Reduced from 500ms to 250ms for faster response
-  };
+    const startPress = () => {
+      timerRef.current = setTimeout(() => {
+        onLongPress(img);
+      }, 250); // Reduced from 500ms to 250ms for faster response
+    };
 
-  const cancelPress = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
+    const cancelPress = () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
 
-  return (
-    <motion.div 
-      layout
-      onPointerDown={startPress}
-      onPointerUp={cancelPress}
-      onPointerLeave={cancelPress}
-      onPointerCancel={cancelPress}
-      onContextMenu={(e) => e.preventDefault()} // Prevent native context menu on mobile
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      transition={{ 
-        type: "spring", 
-        stiffness: 500, 
-        damping: 30, 
-        mass: 1 
-      }}
-      style={{ WebkitTouchCallout: 'none', userSelect: 'none' }} // Prevent text selection/callout
-      className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md cursor-pointer touch-none"
-    >
-      <img 
-        src={img.croppedUrl || img.previewUrl} 
-        alt="Preview" 
-        className="w-full h-full object-contain p-3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105 pointer-events-none"
-        loading="lazy"
-        decoding="async"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-      
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          removeImage(img.id);
+    return (
+      <motion.div
+        layout
+        onPointerDown={startPress}
+        onPointerUp={cancelPress}
+        onPointerLeave={cancelPress}
+        onPointerCancel={cancelPress}
+        onContextMenu={(e) => e.preventDefault()} // Prevent native context menu on mobile
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+        transition={{
+          type: "spring",
+          stiffness: 500,
+          damping: 30,
+          mass: 1,
         }}
-        className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 md:opacity-0 md:group-hover:opacity-100"
-        title="Remove Sticker"
+        style={{ WebkitTouchCallout: "none", userSelect: "none" }} // Prevent text selection/callout
+        className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md cursor-pointer touch-none"
       >
-        <X className="w-3.5 h-3.5" />
-      </button>
-    </motion.div>
-  );
-});
+        <img
+          src={img.croppedUrl || img.previewUrl}
+          alt="Preview"
+          className="w-full h-full object-contain p-3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+          loading="lazy"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            removeImage(img.id);
+          }}
+          className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 md:opacity-0 md:group-hover:opacity-100"
+          title="Remove Sticker"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </motion.div>
+    );
+  },
+);
 
 const memoryCache = {
   step: 1 as 1 | 2 | 3,
@@ -242,18 +291,30 @@ const memoryCache = {
 export default function WhatsappSCreate() {
   const [step, setStep] = useState<1 | 2 | 3>(memoryCache.step);
   const [images, setImages] = useState<UploadedImage[]>(memoryCache.images);
-  const [history, setHistory] = useState<UploadedImage[][]>(memoryCache.history);
-  const [historyPointer, setHistoryPointer] = useState(memoryCache.historyPointer);
+  const [history, setHistory] = useState<UploadedImage[][]>(
+    memoryCache.history,
+  );
+  const [historyPointer, setHistoryPointer] = useState(
+    memoryCache.historyPointer,
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [packs, setPacks] = useState<Pack[]>(memoryCache.packs);
-  const [generatedPacks, setGeneratedPacks] = useState<GeneratedPack[]>(memoryCache.generatedPacks);
+  const [generatedPacks, setGeneratedPacks] = useState<GeneratedPack[]>(
+    memoryCache.generatedPacks,
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropRatio, setCropRatio] = useState<number>(1);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [croppingStats, setCroppingStats] = useState({ isActive: false, total: 0, done: 0 });
-  const [adjustingImage, setAdjustingImage] = useState<UploadedImage | null>(null);
+  const [croppingStats, setCroppingStats] = useState({
+    isActive: false,
+    total: 0,
+    done: 0,
+  });
+  const [adjustingImage, setAdjustingImage] = useState<UploadedImage | null>(
+    null,
+  );
   const [isRestoring, setIsRestoring] = useState(true);
   const [allowAnimated, setAllowAnimated] = useState(false);
 
@@ -265,23 +326,25 @@ export default function WhatsappSCreate() {
           return;
         }
 
-        const idbState = await get('whatsapp_s_create_state');
+        const idbState = await get("whatsapp_s_create_state");
         if (idbState) {
           const restoredImages = (idbState.images || []).map((img: any) => ({
             id: img.id,
             file: img.file,
-            previewUrl: img.file ? URL.createObjectURL(img.file) : '',
+            previewUrl: img.file ? URL.createObjectURL(img.file) : "",
             croppedBlob: img.croppedBlob,
-            croppedUrl: img.croppedBlob ? URL.createObjectURL(img.croppedBlob) : undefined
+            croppedUrl: img.croppedBlob
+              ? URL.createObjectURL(img.croppedBlob)
+              : undefined,
           }));
-          
+
           memoryCache.images = restoredImages;
           memoryCache.step = idbState.step || 1;
           memoryCache.history = [restoredImages]; // History is skipped to save IDB space
           memoryCache.historyPointer = 0;
           memoryCache.packs = idbState.packs || [];
           memoryCache.generatedPacks = idbState.generatedPacks || [];
-          
+
           setImages(memoryCache.images);
           setHistory(memoryCache.history);
           setHistoryPointer(memoryCache.historyPointer);
@@ -289,7 +352,7 @@ export default function WhatsappSCreate() {
           setPacks(memoryCache.packs);
           setGeneratedPacks(memoryCache.generatedPacks);
         }
-      } catch(e) {
+      } catch (e) {
         console.error("Failed to restore state", e);
       } finally {
         setIsRestoring(false);
@@ -307,23 +370,34 @@ export default function WhatsappSCreate() {
     memoryCache.packs = packs;
     memoryCache.generatedPacks = generatedPacks;
 
-    set('whatsapp_s_create_state', {
+    set("whatsapp_s_create_state", {
       step,
-      images: images.map(img => ({
+      images: images.map((img) => ({
         id: img.id,
         file: img.file,
-        croppedBlob: img.croppedBlob
+        croppedBlob: img.croppedBlob,
       })),
       packs,
-      generatedPacks
-    }).catch(e => console.error("Failed to save state to IDB", e));
-  }, [step, images, history, historyPointer, packs, generatedPacks, isRestoring]);
+      generatedPacks,
+    }).catch((e) => console.error("Failed to save state to IDB", e));
+  }, [
+    step,
+    images,
+    history,
+    historyPointer,
+    packs,
+    generatedPacks,
+    isRestoring,
+  ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../workers/cropWorker.ts', import.meta.url), { type: 'module' });
+    workerRef.current = new Worker(
+      new URL("../workers/cropWorker.ts", import.meta.url),
+      { type: "module" },
+    );
 
     return () => {
       workerRef.current?.terminate();
@@ -338,7 +412,10 @@ export default function WhatsappSCreate() {
       newPacks.push({
         id: `pack-${i / 30 + 1}`,
         images: packImages,
-        settings: packs[i / 30]?.settings || { name: `Sticker Pack ${i / 30 + 1}`, author: AUTHORS[0] },
+        settings: packs[i / 30]?.settings || {
+          name: `Sticker Pack ${i / 30 + 1}`,
+          author: AUTHORS[0],
+        },
       });
     }
     setPacks(newPacks);
@@ -379,12 +456,21 @@ export default function WhatsappSCreate() {
     setIsProcessing(true);
     const standardImages: UploadedImage[] = [];
     const zipFiles: File[] = [];
-    
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const isZip = file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed' || (file.type === 'application/octet-stream' && file.name.toLowerCase().endsWith('.zip'));
-      const isImage = file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i);
-      
+      const isZip =
+        file.name.toLowerCase().endsWith(".zip") ||
+        file.type === "application/zip" ||
+        file.type === "application/x-zip-compressed" ||
+        (file.type === "application/octet-stream" &&
+          file.name.toLowerCase().endsWith(".zip"));
+      const isImage =
+        file.type.startsWith("image/") ||
+        file.name.match(
+          /\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i,
+        );
+
       if (isZip) {
         zipFiles.push(file);
       } else if (isImage) {
@@ -395,51 +481,61 @@ export default function WhatsappSCreate() {
         });
       }
     }
-    
+
     let currentImages = [...images];
     if (standardImages.length > 0) {
       currentImages = [...currentImages, ...standardImages];
       setImages(currentImages);
     }
-    
+
     for (const zipFile of zipFiles) {
       try {
         const zip = await JSZip.loadAsync(zipFile);
-        const zipEntries = Object.values(zip.files).filter(f => !f.dir && f.name.match(/\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i));
+        const zipEntries = Object.values(zip.files).filter(
+          (f) =>
+            !f.dir &&
+            f.name.match(
+              /\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i,
+            ),
+        );
         const chunkSize = 15;
-        
+
         for (let i = 0; i < zipEntries.length; i += chunkSize) {
           const chunk = zipEntries.slice(i, i + chunkSize);
           const extractedImages: UploadedImage[] = [];
-          
-          await Promise.all(chunk.map(async (zipEntry) => {
-            const blob = await zipEntry.async('blob');
-            const extractedFile = new File([blob], zipEntry.name, { type: `image/${zipEntry.name.split('.').pop()}` });
-            extractedImages.push({
-              id: Math.random().toString(36).substring(7) + Date.now() + i,
-              file: extractedFile,
-              previewUrl: URL.createObjectURL(extractedFile),
-            });
-          }));
-          
+
+          await Promise.all(
+            chunk.map(async (zipEntry) => {
+              const blob = await zipEntry.async("blob");
+              const extractedFile = new File([blob], zipEntry.name, {
+                type: `image/${zipEntry.name.split(".").pop()}`,
+              });
+              extractedImages.push({
+                id: Math.random().toString(36).substring(7) + Date.now() + i,
+                file: extractedFile,
+                previewUrl: URL.createObjectURL(extractedFile),
+              });
+            }),
+          );
+
           if (extractedImages.length > 0) {
             currentImages = [...currentImages, ...extractedImages];
             setImages(currentImages);
           }
           // Small delay to allow UI to breathe
-          await new Promise(resolve => setTimeout(resolve, 16));
+          await new Promise((resolve) => setTimeout(resolve, 16));
         }
       } catch (error) {
         console.error("Error extracting ZIP:", error);
       }
     }
-    
+
     addToHistory(currentImages);
     setIsProcessing(false);
   };
 
   const removeImage = (id: string) => {
-    const newImages = images.filter(i => i.id !== id);
+    const newImages = images.filter((i) => i.id !== id);
     addToHistory(newImages);
   };
 
@@ -450,41 +546,53 @@ export default function WhatsappSCreate() {
     }
   };
 
-  const updatePackSettings = (packIndex: number, field: keyof PackSettings, value: string) => {
-    setPacks(prev => {
+  const updatePackSettings = (
+    packIndex: number,
+    field: keyof PackSettings,
+    value: string,
+  ) => {
+    setPacks((prev) => {
       const newPacks = [...prev];
       newPacks[packIndex] = {
         ...newPacks[packIndex],
-        settings: { ...newPacks[packIndex].settings, [field]: value }
+        settings: { ...newPacks[packIndex].settings, [field]: value },
       };
       return newPacks;
     });
   };
 
-  const convertToWebP = (imgUrl: string, size: number, mimeType: string = 'image/webp'): Promise<Blob> => {
+  const convertToWebP = (
+    imgUrl: string,
+    size: number,
+    mimeType: string = "image/webp",
+  ): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "Anonymous";
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = size;
         canvas.height = size;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         if (!ctx) return reject(new Error("Failed to get canvas context"));
 
         // Calculate aspect ratio and center image
         const scale = Math.min(size / img.width, size / img.height);
-        const x = (size / 2) - (img.width / 2) * scale;
-        const y = (size / 2) - (img.height / 2) * scale;
+        const x = size / 2 - (img.width / 2) * scale;
+        const y = size / 2 - (img.height / 2) * scale;
 
         // Transparent background
         ctx.clearRect(0, 0, size, size);
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
 
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error("Canvas to Blob failed"));
-        }, mimeType, 0.8);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Canvas to Blob failed"));
+          },
+          mimeType,
+          0.8,
+        );
       };
       img.onerror = reject;
       img.src = imgUrl;
@@ -495,33 +603,43 @@ export default function WhatsappSCreate() {
     setIsGenerating(true);
     setProgress(0);
     const newGeneratedPacks: GeneratedPack[] = [];
-    
+
     let totalImages = packs.reduce((acc, pack) => acc + pack.images.length, 0);
     let processedImages = 0;
 
     for (const pack of packs) {
       const zip = new JSZip();
-      zip.file('title.txt', pack.settings.name);
-      zip.file('author.txt', pack.settings.author);
+      zip.file("title.txt", pack.settings.name);
+      zip.file("author.txt", pack.settings.author);
 
       if (pack.images.length > 0) {
         // Tray icon from first image - MUST be PNG for .wastickers compatibility
-        const trayBlob = await convertToWebP(pack.images[0].croppedUrl || pack.images[0].previewUrl, 96, 'image/png');
-        zip.file('tray.png', trayBlob);
+        const trayBlob = await convertToWebP(
+          pack.images[0].croppedUrl || pack.images[0].previewUrl,
+          96,
+          "image/png",
+        );
+        zip.file("tray.png", trayBlob);
 
         // Process all images - MUST be WebP
         for (let i = 0; i < pack.images.length; i++) {
           const img = pack.images[i];
-          const webpBlob = await convertToWebP(img.croppedUrl || img.previewUrl, 512, 'image/webp');
+          const webpBlob = await convertToWebP(
+            img.croppedUrl || img.previewUrl,
+            512,
+            "image/webp",
+          );
           zip.file(`${i + 1}.webp`, webpBlob);
-          
+
           processedImages++;
           setProgress(Math.round((processedImages / totalImages) * 100));
         }
       }
 
-      const content = await zip.generateAsync({ type: 'arraybuffer' });
-      const wastickersBlob = new Blob([content], { type: 'application/octet-stream' });
+      const content = await zip.generateAsync({ type: "arraybuffer" });
+      const wastickersBlob = new Blob([content], {
+        type: "application/octet-stream",
+      });
       newGeneratedPacks.push({
         id: pack.id,
         name: pack.settings.name,
@@ -536,9 +654,9 @@ export default function WhatsappSCreate() {
 
   const downloadPack = (pack: GeneratedPack, asZip: boolean = false) => {
     const url = URL.createObjectURL(pack.blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    const safeName = pack.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const safeName = pack.name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
     a.download = asZip ? `${safeName}_stickers.zip` : `${safeName}.wastickers`;
     document.body.appendChild(a);
     a.click();
@@ -549,37 +667,50 @@ export default function WhatsappSCreate() {
     }
   };
 
-  const handleManualCropSave = async (cropX: number, cropY: number, cropW: number, cropH: number) => {
+  const handleManualCropSave = async (
+    cropX: number,
+    cropY: number,
+    cropW: number,
+    cropH: number,
+  ) => {
     if (!adjustingImage) return;
-    
+
     // Capture the image reference and close the modal immediately for a snappy UI
     const currentImg = adjustingImage;
     setAdjustingImage(null);
-    
+
     // Generate new croppedUrl in the background
     const img = new Image();
     img.crossOrigin = "Anonymous";
     img.src = currentImg.previewUrl;
-    
+
     await new Promise((resolve) => {
       img.onload = resolve;
     });
-    
-    const canvas = document.createElement('canvas');
+
+    const canvas = document.createElement("canvas");
     canvas.width = cropW;
     canvas.height = cropH;
-    const ctx = canvas.getContext('2d');
-    
+    const ctx = canvas.getContext("2d");
+
     if (ctx) {
       ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const croppedUrl = URL.createObjectURL(blob);
-          setImages(current => current.map(item => 
-            item.id === currentImg.id ? { ...item, croppedUrl, croppedBlob: blob } : item
-          ));
-        }
-      }, 'image/webp', 0.9);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const croppedUrl = URL.createObjectURL(blob);
+            setImages((current) =>
+              current.map((item) =>
+                item.id === currentImg.id
+                  ? { ...item, croppedUrl, croppedBlob: blob }
+                  : item,
+              ),
+            );
+          }
+        },
+        "image/webp",
+        0.9,
+      );
     }
   };
   const handleAutoCrop = async () => {
@@ -600,10 +731,10 @@ export default function WhatsappSCreate() {
         });
 
         const imgRatio = imageElement.width / imageElement.height;
-        
+
         // Skip if already in the selected ratio (tolerance 0.02)
         if (Math.abs(imgRatio - cropRatio) < 0.02) {
-          setCroppingStats(prev => ({ ...prev, done: i + 1 }));
+          setCroppingStats((prev) => ({ ...prev, done: i + 1 }));
           continue;
         }
 
@@ -617,48 +748,71 @@ export default function WhatsappSCreate() {
           thumbH = Math.round(thumbH * ratio);
         }
 
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = thumbW;
         canvas.height = thumbH;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
         if (ctx) {
           ctx.drawImage(imageElement, 0, 0, thumbW, thumbH);
           const imageData = ctx.getImageData(0, 0, thumbW, thumbH);
-          
+
           await new Promise<void>((resolveWorker) => {
             const messageHandler = (e: MessageEvent) => {
               if (e.data.id === img.id) {
-                workerRef.current?.removeEventListener('message', messageHandler);
-                
+                workerRef.current?.removeEventListener(
+                  "message",
+                  messageHandler,
+                );
+
                 const { cropX, cropY, cropW, cropH } = e.data;
-                const cropCanvas = document.createElement('canvas');
+                const cropCanvas = document.createElement("canvas");
                 cropCanvas.width = cropW;
                 cropCanvas.height = cropH;
-                const cropCtx = cropCanvas.getContext('2d');
+                const cropCtx = cropCanvas.getContext("2d");
                 if (cropCtx) {
-                  cropCtx.drawImage(imageElement, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-                  cropCanvas.toBlob((blob) => {
-                    if (blob) {
-                      const croppedUrl = URL.createObjectURL(blob);
-                      setImages(current => current.map(item => item.id === img.id ? { ...item, croppedUrl, croppedBlob: blob } : item));
-                    }
-                    resolveWorker();
-                  }, 'image/webp', 0.9);
+                  cropCtx.drawImage(
+                    imageElement,
+                    cropX,
+                    cropY,
+                    cropW,
+                    cropH,
+                    0,
+                    0,
+                    cropW,
+                    cropH,
+                  );
+                  cropCanvas.toBlob(
+                    (blob) => {
+                      if (blob) {
+                        const croppedUrl = URL.createObjectURL(blob);
+                        setImages((current) =>
+                          current.map((item) =>
+                            item.id === img.id
+                              ? { ...item, croppedUrl, croppedBlob: blob }
+                              : item,
+                          ),
+                        );
+                      }
+                      resolveWorker();
+                    },
+                    "image/webp",
+                    0.9,
+                  );
                 } else {
                   resolveWorker();
                 }
               }
             };
-            
-            workerRef.current!.addEventListener('message', messageHandler);
-            workerRef.current!.postMessage({ 
-              id: img.id, 
-              imageData, 
+
+            workerRef.current!.addEventListener("message", messageHandler);
+            workerRef.current!.postMessage({
+              id: img.id,
+              imageData,
               targetRatio: cropRatio,
               origW: imageElement.width,
               origH: imageElement.height,
-              previewUrl: img.previewUrl
+              previewUrl: img.previewUrl,
             });
           });
         }
@@ -666,98 +820,69 @@ export default function WhatsappSCreate() {
         console.error("Error cropping image", img.id, error);
       }
 
-      setCroppingStats(prev => ({ ...prev, done: i + 1 }));
+      setCroppingStats((prev) => ({ ...prev, done: i + 1 }));
       // Yield to main thread to keep UI smooth using requestAnimationFrame
-      await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => setTimeout(resolve, 0)),
+      );
     }
 
-    setTimeout(() => setCroppingStats({ isActive: false, total: 0, done: 0 }), 500);
+    setTimeout(
+      () => setCroppingStats({ isActive: false, total: 0, done: 0 }),
+      500,
+    );
   };
 
   if (isRestoring) {
     return (
       <div className="w-full flex-1 flex flex-col items-center justify-center min-h-[50vh]">
         <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-        <p className="text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">Restoring your workspace...</p>
+        <p className="text-zinc-500 dark:text-zinc-400 font-medium tracking-wide">
+          Restoring your workspace...
+        </p>
       </div>
     );
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       className="w-full flex-1 flex flex-col"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col">
-        {/* Stepper */}
-        <div className="max-w-2xl mx-auto w-full mb-16">
-          <div className="flex items-center justify-between relative">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <motion.div 
-                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500"
-                initial={{ width: '0%' }}
-                animate={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-              />
-            </div>
-            
-            {[
-              { num: 1, label: 'Upload', icon: Upload },
-              { num: 2, label: 'Organize', icon: Layers },
-              { num: 3, label: 'Export', icon: Download }
-            ].map((s) => (
-              <div key={s.num} className="relative flex flex-col items-center gap-3 bg-zinc-50 dark:bg-zinc-950 px-4">
-                <motion.div 
-                  animate={{ 
-                    scale: step === s.num ? 1.1 : 1,
-                    backgroundColor: step >= s.num ? '#10b981' : 'transparent',
-                    borderColor: step >= s.num ? '#10b981' : '#d4d4d8'
-                  }}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors duration-300 ${
-                    step >= s.num ? 'text-white shadow-lg shadow-emerald-500/30' : 'text-zinc-400 dark:border-zinc-700'
-                  }`}
-                >
-                  <s.icon className="w-5 h-5" />
-                </motion.div>
-                <span className={`text-xs font-bold uppercase tracking-widest transition-colors ${step >= s.num ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
-                  {s.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col pt-8">
         <AnimatePresence mode="wait">
           {/* Step 1: Upload */}
           {step === 1 && (
-            <motion.div 
+            <motion.div
               key="step1"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className="max-w-3xl mx-auto w-full flex-1 flex flex-col justify-center"
             >
-              <motion.div 
-                whileHover={{ scale: 1.01 }} 
-                whileTap={{ scale: 0.99 }} 
+              <motion.div
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
                 className="relative group cursor-pointer"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2.5rem] opacity-10 group-hover:opacity-20 transition duration-500"></div>
-                <div className="relative glass-panel rounded-[2.5rem] p-8 sm:p-12 text-center flex flex-col items-center border-2 border-dashed border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-colors">
+                <div className="relative glass-panel rounded-[2.5rem] p-8 sm:p-12 text-center flex flex-col items-center border-2 border-dashed border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-colors bg-white/30 dark:bg-zinc-900/30">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner group-hover:scale-110 transition-transform duration-500">
                     <Upload className="w-8 h-8 sm:w-10 sm:h-10" />
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-zinc-900 dark:text-white tracking-tight">Drop your files here</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto text-sm sm:text-base leading-relaxed">
-                    Upload photos or a ZIP file. We'll extract, smart-crop, and package them into WhatsApp stickers instantly.
+                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white tracking-tight">
+                    Drop images here
+                  </h2>
+                  <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-sm mx-auto text-sm leading-relaxed">
+                    JPG, PNG, WebP or ZIP packaging.
                   </p>
 
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       fileInputRef.current?.click();
@@ -766,13 +891,15 @@ export default function WhatsappSCreate() {
                   >
                     Browse Files <ArrowRight className="w-4 h-4" />
                   </button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    multiple 
-                    accept="*/*" 
-                    onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    multiple
+                    accept="*/*"
+                    onChange={(e) =>
+                      e.target.files && handleFileUpload(e.target.files)
+                    }
                   />
                 </div>
               </motion.div>
@@ -781,7 +908,7 @@ export default function WhatsappSCreate() {
 
           {/* Step 2: Organize */}
           {step === 2 && (
-            <motion.div 
+            <motion.div
               key="step2"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -798,15 +925,19 @@ export default function WhatsappSCreate() {
                         <ImageIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
                       </div>
                       <div>
-                        <h2 className="font-bold text-zinc-900 dark:text-white leading-tight">Canvas</h2>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{images.length} Stickers</p>
+                        <h2 className="font-bold text-zinc-900 dark:text-white leading-tight">
+                          Canvas
+                        </h2>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                          {images.length} Stickers
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-4">
                       {/* History Controls Group */}
                       <div className="flex items-center bg-zinc-100/80 dark:bg-zinc-800/80 rounded-xl p-1 border border-zinc-200/50 dark:border-zinc-700/50">
-                        <button 
+                        <button
                           onClick={undo}
                           disabled={historyPointer === 0}
                           className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-all hover:bg-white dark:hover:bg-zinc-700 rounded-lg"
@@ -815,7 +946,7 @@ export default function WhatsappSCreate() {
                           <Undo2 className="w-4 h-4" />
                         </button>
                         <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-600 mx-1"></div>
-                        <button 
+                        <button
                           onClick={redo}
                           disabled={historyPointer === history.length - 1}
                           className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-all hover:bg-white dark:hover:bg-zinc-700 rounded-lg"
@@ -827,49 +958,51 @@ export default function WhatsappSCreate() {
 
                       {/* Action Buttons Group */}
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => addToHistory([])}
                           className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shadow-sm active:scale-95"
                         >
                           <Trash2 className="w-3.5 h-3.5" /> Clear All
                         </button>
-                        <button 
+                        <button
                           onClick={() => setShowCropModal(true)}
                           className="flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm active:scale-95"
                         >
                           <Crop className="w-3.5 h-3.5" /> Smart Crop
                         </button>
-                        <button 
+                        <button
                           onClick={() => fileInputRef.current?.click()}
                           className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
                         >
                           <Plus className="w-3.5 h-3.5" /> Add Files
                         </button>
                       </div>
-                      
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        multiple 
-                        accept="*/*" 
-                        onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        multiple
+                        accept="*/*"
+                        onChange={(e) =>
+                          e.target.files && handleFileUpload(e.target.files)
+                        }
                       />
                     </div>
                   </div>
-                  
+
                   {/* Grid */}
                   <div className="p-8 bg-zinc-50/30 dark:bg-black/10 flex-1 overflow-y-auto custom-scrollbar">
-                    <motion.div 
+                    <motion.div
                       layout
                       className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
                     >
                       <AnimatePresence mode="popLayout">
                         {images.map((img) => (
-                          <ImageGridItem 
-                            key={img.id} 
-                            img={img} 
-                            removeImage={removeImage} 
+                          <ImageGridItem
+                            key={img.id}
+                            img={img}
+                            removeImage={removeImage}
                             onLongPress={(img) => setAdjustingImage(img)}
                           />
                         ))}
@@ -886,51 +1019,86 @@ export default function WhatsappSCreate() {
                     <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
                       <Settings2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">Pack Settings</h3>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                      Pack Settings
+                    </h3>
                   </div>
-                  
+
                   <div className="space-y-5 overflow-y-auto custom-scrollbar pr-2 flex-1">
                     {packs.map((pack, index) => (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        key={pack.id} 
+                        key={pack.id}
                         className="bg-white dark:bg-zinc-900/50 rounded-2xl p-6 border border-zinc-200/80 dark:border-zinc-800 shadow-sm hover:border-emerald-500/30 transition-colors"
                       >
                         <div className="flex items-center justify-between mb-6">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <h4 className="font-bold text-zinc-900 dark:text-white">Pack {index + 1}</h4>
+                            <h4 className="font-bold text-zinc-900 dark:text-white">
+                              Pack {index + 1}
+                            </h4>
                           </div>
                           <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1.5 rounded-lg uppercase tracking-wider">
                             {pack.images.length} / 30
                           </span>
                         </div>
-                        
+
                         <div className="space-y-5">
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-[0.2em]">Pack Name</label>
-                            <input 
-                              type="text" 
+                            <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-[0.2em]">
+                              Pack Name
+                            </label>
+                            <input
+                              type="text"
                               placeholder="Enter pack name..."
                               value={pack.settings.name}
-                              onChange={(e) => updatePackSettings(index, 'name', e.target.value)}
+                              onChange={(e) =>
+                                updatePackSettings(
+                                  index,
+                                  "name",
+                                  e.target.value,
+                                )
+                              }
                               className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-inner"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-[0.2em]">Author</label>
+                            <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-[0.2em]">
+                              Author
+                            </label>
                             <div className="relative">
-                              <select 
+                              <select
                                 value={pack.settings.author}
-                                onChange={(e) => updatePackSettings(index, 'author', e.target.value)}
+                                onChange={(e) =>
+                                  updatePackSettings(
+                                    index,
+                                    "author",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none shadow-inner pr-10 cursor-pointer"
                               >
-                                {AUTHORS.map(a => <option key={a} value={a}>{a}</option>)}
+                                {AUTHORS.map((a) => (
+                                  <option key={a} value={a}>
+                                    {a}
+                                  </option>
+                                ))}
                               </select>
                               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="m6 9 6 6 6-6" />
+                                </svg>
                               </div>
                             </div>
                           </div>
@@ -940,7 +1108,7 @@ export default function WhatsappSCreate() {
                   </div>
 
                   <div className="pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-800">
-                    <button 
+                    <button
                       onClick={generatePacks}
                       disabled={isGenerating || images.length === 0}
                       className="relative w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:from-zinc-300 disabled:to-zinc-300 dark:disabled:from-zinc-800 dark:disabled:to-zinc-800 disabled:text-zinc-500 text-white px-4 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-2 overflow-hidden"
@@ -949,10 +1117,15 @@ export default function WhatsappSCreate() {
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
                           Packaging ({progress}%)
-                          <div className="absolute bottom-0 left-0 h-1 bg-white/30" style={{ width: `${progress}%` }}></div>
+                          <div
+                            className="absolute bottom-0 left-0 h-1 bg-white/30"
+                            style={{ width: `${progress}%` }}
+                          ></div>
                         </>
                       ) : (
-                        <>Generate Packs <ArrowRight className="w-5 h-5" /></>
+                        <>
+                          Generate Packs <ArrowRight className="w-5 h-5" />
+                        </>
                       )}
                     </button>
                   </div>
@@ -963,13 +1136,13 @@ export default function WhatsappSCreate() {
 
           {/* Step 3: Export */}
           {step === 3 && (
-            <motion.div 
+            <motion.div
               key="step3"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="max-w-2xl mx-auto mt-12 text-center glass-panel p-12 rounded-[3rem]"
             >
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", bounce: 0.5 }}
@@ -977,18 +1150,21 @@ export default function WhatsappSCreate() {
               >
                 <CheckCircle2 className="w-14 h-14" />
               </motion.div>
-              <h2 className="text-5xl font-extrabold mb-4 tracking-tight text-zinc-900 dark:text-white">Ready to Share!</h2>
+              <h2 className="text-5xl font-extrabold mb-4 tracking-tight text-zinc-900 dark:text-white">
+                Ready to Share!
+              </h2>
               <p className="text-zinc-500 dark:text-zinc-400 mb-12 text-lg">
-                Your stickers are perfectly packaged. Download them and import directly into WhatsApp.
+                Your stickers are perfectly packaged. Download them and import
+                directly into WhatsApp.
               </p>
 
               <div className="space-y-4 mb-12 text-left">
                 {generatedPacks.map((pack, i) => (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    key={pack.id} 
+                    key={pack.id}
                     className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center gap-4">
@@ -996,12 +1172,16 @@ export default function WhatsappSCreate() {
                         <Briefcase className="w-7 h-7" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg text-zinc-900 dark:text-white">{pack.name}</h3>
-                        <p className="text-sm font-medium text-zinc-500">.wastickers format</p>
+                        <h3 className="font-bold text-lg text-zinc-900 dark:text-white">
+                          {pack.name}
+                        </h3>
+                        <p className="text-sm font-medium text-zinc-500">
+                          .wastickers format
+                        </p>
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <button 
+                      <button
                         onClick={() => downloadPack(pack, false)}
                         className="flex-1 flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-4 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                       >
@@ -1012,7 +1192,7 @@ export default function WhatsappSCreate() {
                 ))}
               </div>
 
-              <button 
+              <button
                 onClick={() => {
                   setImages([]);
                   setPacks([]);
@@ -1031,43 +1211,65 @@ export default function WhatsappSCreate() {
       {/* Processing Loading Overlay */}
       <AnimatePresence>
         {(croppingStats.isActive || isProcessing) && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col items-center text-center"
             >
               <div className="relative w-24 h-24 mb-8">
-                <svg className="animate-spin w-full h-full text-emerald-500" viewBox="0 0 24 24">
-                  <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none"></circle>
-                  <path className="opacity-100" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin w-full h-full text-emerald-500"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-20"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                  ></circle>
+                  <path
+                    className="opacity-100"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 {croppingStats.isActive && (
                   <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-zinc-900 dark:text-white">
-                    {Math.round((croppingStats.done / croppingStats.total) * 100) || 0}%
+                    {Math.round(
+                      (croppingStats.done / croppingStats.total) * 100,
+                    ) || 0}
+                    %
                   </div>
                 )}
               </div>
               <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">
-                {croppingStats.isActive ? 'Smart Cropping' : 'Processing Images'}
+                {croppingStats.isActive
+                  ? "Smart Cropping"
+                  : "Processing Images"}
               </h3>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium mb-8">
-                {croppingStats.isActive 
+                {croppingStats.isActive
                   ? `Analyzing image ${croppingStats.done} of ${croppingStats.total}`
-                  : 'Preparing your stickers, please wait...'}
+                  : "Preparing your stickers, please wait..."}
               </p>
               {croppingStats.isActive && (
                 <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
-                  <motion.div 
-                    className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full" 
+                  <motion.div
+                    className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full"
                     initial={{ width: 0 }}
-                    animate={{ width: `${(croppingStats.done / croppingStats.total) * 100}%` }}
+                    animate={{
+                      width: `${(croppingStats.done / croppingStats.total) * 100}%`,
+                    }}
                     transition={{ ease: "easeOut" }}
                   />
                 </div>
@@ -1092,44 +1294,50 @@ export default function WhatsappSCreate() {
       {/* Crop Modal */}
       <AnimatePresence>
         {showCropModal && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="bg-white dark:bg-zinc-900 rounded-[2.5rem] max-w-md w-full p-8 shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 relative overflow-hidden"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Aspect Ratio</h3>
-                <button onClick={() => setShowCropModal(false)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 p-2.5 rounded-full transition-colors">
+                <h3 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+                  Aspect Ratio
+                </h3>
+                <button
+                  onClick={() => setShowCropModal(false)}
+                  className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 p-2.5 rounded-full transition-colors"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <div className="space-y-4 mb-8">
                 <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-                  Select the target aspect ratio. Our AI will find the most interesting part of each image and crop it perfectly.
+                  Select the target aspect ratio. Our AI will find the most
+                  interesting part of each image and crop it perfectly.
                 </p>
-                
+
                 <div className="grid grid-cols-2 gap-3 mt-6">
                   {[
-                    { label: '1:1 (Square)', value: 1 },
-                    { label: '4:5 (Portrait)', value: 4/5 },
-                    { label: '16:9 (Landscape)', value: 16/9 },
-                    { label: '9:16 (Story)', value: 9/16 },
-                  ].map(ratio => (
+                    { label: "1:1 (Square)", value: 1 },
+                    { label: "4:5 (Portrait)", value: 4 / 5 },
+                    { label: "16:9 (Landscape)", value: 16 / 9 },
+                    { label: "9:16 (Story)", value: 9 / 16 },
+                  ].map((ratio) => (
                     <button
                       key={ratio.label}
                       onClick={() => setCropRatio(ratio.value)}
                       className={`px-4 py-4 rounded-2xl border-2 text-sm font-bold transition-all ${
-                        cropRatio === ratio.value 
-                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 shadow-md shadow-emerald-500/10' 
-                          : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        cropRatio === ratio.value
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 shadow-md shadow-emerald-500/10"
+                          : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                       }`}
                     >
                       {ratio.label}
@@ -1139,13 +1347,13 @@ export default function WhatsappSCreate() {
               </div>
 
               <div className="flex gap-3">
-                <button 
+                <button
                   onClick={() => setShowCropModal(false)}
                   className="flex-1 px-4 py-4 rounded-2xl font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleAutoCrop}
                   className="flex-1 px-4 py-4 rounded-2xl font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
                 >
@@ -1160,13 +1368,13 @@ export default function WhatsappSCreate() {
       {/* Instructions Modal */}
       <AnimatePresence>
         {showInstructions && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -1179,36 +1387,60 @@ export default function WhatsappSCreate() {
                   </div>
                   How to Import
                 </h3>
-                <button onClick={() => setShowInstructions(false)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 p-2.5 rounded-full transition-colors">
+                <button
+                  onClick={() => setShowInstructions(false)}
+                  className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 p-2.5 rounded-full transition-colors"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <div className="space-y-8">
                 <div className="flex gap-5">
-                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">1</div>
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">
+                    1
+                  </div>
                   <div>
-                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">Download App</h4>
-                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">Install a third-party app like "Sticker Maker" or "Personal Stickers for WhatsApp".</p>
+                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">
+                      Download App
+                    </h4>
+                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Install a third-party app like "Sticker Maker" or
+                      "Personal Stickers for WhatsApp".
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-5">
-                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">2</div>
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">
+                    2
+                  </div>
                   <div>
-                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">Open the File</h4>
-                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">Tap the downloaded .wastickers file and choose to open it with your sticker app.</p>
+                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">
+                      Open the File
+                    </h4>
+                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Tap the downloaded .wastickers file and choose to open it
+                      with your sticker app.
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-5">
-                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">3</div>
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner">
+                    3
+                  </div>
                   <div>
-                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">Add to WhatsApp</h4>
-                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">Inside the sticker app, tap "Add to WhatsApp" to import your new pack!</p>
+                    <h4 className="font-bold text-zinc-900 dark:text-white mb-1.5 text-lg">
+                      Add to WhatsApp
+                    </h4>
+                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Inside the sticker app, tap "Add to WhatsApp" to import
+                      your new pack!
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={() => setShowInstructions(false)}
                 className="w-full mt-10 px-4 py-4 rounded-2xl font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
               >
