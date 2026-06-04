@@ -452,6 +452,24 @@ export default function WhatsappSCreate() {
     }
   };
 
+  const handleFileUploadRef = React.useRef<(files: FileList | File[]) => void>();
+
+  useEffect(() => {
+    handleFileUploadRef.current = handleFileUpload;
+  });
+
+  useEffect(() => {
+    const handleImportFiles = (e: any) => {
+      if (e.detail && Array.isArray(e.detail) && e.detail.length > 0) {
+        if (handleFileUploadRef.current) {
+          handleFileUploadRef.current(e.detail);
+        }
+      }
+    };
+    window.addEventListener("import-files", handleImportFiles);
+    return () => window.removeEventListener("import-files", handleImportFiles);
+  }, []);
+
   const handleFileUpload = async (files: FileList | File[]) => {
     setIsProcessing(true);
     const standardImages: UploadedImage[] = [];

@@ -18,6 +18,16 @@ export default function App() {
   const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
+    const handleNav = (e: any) => {
+      if (e.detail && ['create', 'video', 'explore'].includes(e.detail)) {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('navigate-tab', handleNav);
+    return () => window.removeEventListener('navigate-tab', handleNav);
+  }, []);
+
+  useEffect(() => {
     // Register service worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
