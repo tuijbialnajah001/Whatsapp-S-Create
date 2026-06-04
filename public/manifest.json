@@ -1,6 +1,6 @@
 {
-  "name": "wsgen",
-  "short_name": "wsgen",
+  "name": "wagen",
+  "short_name": "wagen",
   "description": "WhatsApp Sticker Generator",
   "start_url": "/",
   "display": "standalone",

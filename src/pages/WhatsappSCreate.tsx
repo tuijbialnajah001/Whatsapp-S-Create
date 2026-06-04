@@ -255,6 +255,7 @@ export default function WhatsappSCreate() {
   const [croppingStats, setCroppingStats] = useState({ isActive: false, total: 0, done: 0 });
   const [adjustingImage, setAdjustingImage] = useState<UploadedImage | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const [allowAnimated, setAllowAnimated] = useState(false);
 
   useEffect(() => {
     const restoreFromIDB = async () => {
@@ -755,6 +756,7 @@ export default function WhatsappSCreate() {
                   <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto text-sm sm:text-base leading-relaxed">
                     Upload photos or a ZIP file. We'll extract, smart-crop, and package them into WhatsApp stickers instantly.
                   </p>
+
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();

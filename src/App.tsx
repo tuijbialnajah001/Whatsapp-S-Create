@@ -6,11 +6,12 @@
 import React, { useState, useEffect } from 'react';
 import WhatsappSCreate from './pages/WhatsappSCreate';
 import ExploreImages from './pages/ExploreImages';
-import { Sparkles, Image as ImageIcon, Sticker, Bug, X, Send, Download } from 'lucide-react';
+import VideoStickerCreate from './pages/VideoStickerCreate';
+import { Sparkles, Image as ImageIcon, Sticker, Bug, X, Send, Download, Film, Compass } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'create' | 'explore'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'explore' | 'video'>('create');
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [bugDescription, setBugDescription] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -103,22 +104,31 @@ export default function App() {
           </div>
 
           {/* Toggle */}
-          <div className="flex items-center relative w-[220px] sm:w-[240px]">
+          <div className="flex items-center relative w-[200px] sm:w-[240px]">
             <div 
-              className="absolute inset-y-0 w-1/2 bg-zinc-900 dark:bg-white rounded-full transition-transform duration-300 ease-out shadow-md"
-              style={{ transform: activeTab === 'create' ? 'translateX(0)' : 'translateX(100%)' }}
+              className="absolute inset-y-0 w-1/3 bg-zinc-900 dark:bg-white rounded-full transition-transform duration-300 ease-out shadow-md"
+              style={{ transform: activeTab === 'create' ? 'translateX(0)' : activeTab === 'video' ? 'translateX(100%)' : 'translateX(200%)' }}
             ></div>
             <button 
               onClick={() => setActiveTab('create')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-xs sm:text-sm font-bold rounded-full transition-colors ${activeTab === 'create' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              title="Image to Sticker"
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${activeTab === 'create' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
-              <Sticker className="w-4 h-4" /> Create
+              <ImageIcon className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('video')}
+              title="Video to Sticker"
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${activeTab === 'video' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+            >
+              <Film className="w-5 h-5" />
             </button>
             <button 
               onClick={() => setActiveTab('explore')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-xs sm:text-sm font-bold rounded-full transition-colors ${activeTab === 'explore' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              title="Explore Stickers"
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${activeTab === 'explore' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
-              <ImageIcon className="w-4 h-4" /> Explore
+              <Compass className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -127,6 +137,9 @@ export default function App() {
       <main className="relative z-10 pt-24 pb-20 min-h-screen flex flex-col">
         <div className={activeTab === 'create' ? 'flex flex-col flex-1' : 'hidden'}>
           <WhatsappSCreate />
+        </div>
+        <div className={activeTab === 'video' ? 'flex flex-col flex-1' : 'hidden'}>
+          <VideoStickerCreate />
         </div>
         <div className={activeTab === 'explore' ? 'flex flex-col flex-1' : 'hidden'}>
           <ExploreImages />
