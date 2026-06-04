@@ -38,7 +38,7 @@ interface GeneratedPack {
 const AUTHORS = [
   "Powered by 𝙱𝙹𝙴 ~ Clan",
   "ͲႮᏆᎫᏴᏆᎪᏞΝΑᎫΑΉ·Kҽɳƈԋσ Aʅʅιαɳƈҽ",
-  "if you steal my sticker then you're gay/lesbian. Don't you dare baka 😭 ( Tuijbialnajah-frieren-paglu-flat-boobs-lover )",
+  "𝗚𝗨𝗬 𝗖𝗥𝗜𝗠𝗦𝗢𝗡 ~ 𝗢𝗖𝗧Λ𝗚𝗥Λ𝗠",
   "Tuijbialnajah-frieren-paglu-flat-boobs-lover"
 ];
 
