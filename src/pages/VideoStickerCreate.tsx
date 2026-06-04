@@ -12,6 +12,8 @@ import {
   Play,
   CheckCircle2,
   Package,
+  Check,
+  Sticker,
 } from "lucide-react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
@@ -24,12 +26,14 @@ interface VideoItem {
   resultUrl?: string;
   status: "pending" | "processing" | "done" | "error";
   progress: number;
+  statusText?: string;
 }
 
 export default function VideoStickerCreate() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isConverting, setIsConverting] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -129,6 +133,14 @@ export default function VideoStickerCreate() {
       const ffmpeg = ffmpegRef.current;
 
       if (!ffmpeg.loaded) {
+        setVideos((prev) =>
+          prev.map((v) =>
+            v.status === "pending"
+              ? { ...v, statusText: "Setting up core..." }
+              : v,
+          ),
+        );
+
         const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
         await ffmpeg.load({
           coreURL: await toBlobURL(
@@ -149,20 +161,59 @@ export default function VideoStickerCreate() {
         const videoId = videos[i].id;
         setVideos((prev) =>
           prev.map((v) =>
-            v.id === videoId ? { ...v, status: "processing", progress: 0 } : v,
+            v.id === videoId
+              ? {
+                  ...v,
+                  status: "processing",
+                  progress: 5,
+                  statusText: "Writing media...",
+                }
+              : v,
           ),
         );
 
         // Listen for progress
-        ffmpeg.on("progress", ({ progress }) => {
+        const progressCallback = ({ progress }: any) => {
           setVideos((prev) =>
             prev.map((v) =>
               v.id === videoId && v.status === "processing"
-                ? { ...v, progress: Math.max(5, Math.round(progress * 100)) }
+                ? {
+                    ...v,
+                    progress: Math.max(
+                      10,
+                      Math.min(95, Math.round(progress * 100)),
+                    ),
+                    statusText: `Encoding WebP (${Math.round(progress * 100)}%)`,
+                  }
                 : v,
             ),
           );
-        });
+        };
+        ffmpeg.on("progress", progressCallback);
+
+        // Add logging for debugging
+        const logCallback = ({ message }: { message: string }) => {
+          console.log(`[ffmpeg ${videoId}]`, message);
+          let text = "";
+          if (message.includes("frame=")) {
+            const match = message.match(/frame=\s*(\d+)/);
+            if (match) {
+              text = `Processing Frame ${match[1]}`;
+            }
+          } else if (message.includes("Output #0")) {
+            text = "Encoding WebP...";
+          }
+          if (text) {
+            setVideos((prev) =>
+              prev.map((v) =>
+                v.id === videoId && v.status === "processing"
+                  ? { ...v, statusText: text }
+                  : v,
+              ),
+            );
+          }
+        };
+        ffmpeg.on("log", logCallback);
 
         try {
           const inputName = `input_${videoId}.mp4`;
@@ -170,31 +221,32 @@ export default function VideoStickerCreate() {
 
           await ffmpeg.writeFile(inputName, await fetchFile(videos[i].file));
 
-          // Max 8s, 24fps, 512x512 crop
-          await ffmpeg.exec([
+          // Use -y to overwrite, and optimize webp settings for speed
+          const execCode = await ffmpeg.exec([
+            "-y",
             "-i",
             inputName,
             "-t",
-            "8",
+            "8", // crop and limit to first 8 seconds
             "-vf",
-            "fps=24,scale=512:512:force_original_aspect_ratio=increase,crop=512:512",
+            "fps=12,scale=512:512:force_original_aspect_ratio=increase,crop=512:512", // 1:1 center-cropped downscaling
             "-c:v",
             "libwebp",
             "-lossless",
             "0",
-            "-compression_level",
-            "4",
             "-q:v",
-            "50",
+            "45", // optimized quality/size ratio for WhatsApp rules
+            "-preset",
+            "default",
             "-loop",
             "0",
-            "-preset",
-            "picture",
             "-an",
-            "-vsync",
-            "0",
             outputName,
           ]);
+
+          if (execCode !== 0) {
+            throw new Error(`FFmpeg exited with code ${execCode}`);
+          }
 
           const data = await ffmpeg.readFile(outputName);
           const blob = new Blob([data], { type: "image/webp" });
@@ -203,7 +255,13 @@ export default function VideoStickerCreate() {
           setVideos((prev) =>
             prev.map((v) =>
               v.id === videoId
-                ? { ...v, status: "done", progress: 100, resultUrl: url }
+                ? {
+                    ...v,
+                    status: "done",
+                    progress: 100,
+                    statusText: "Completed",
+                    resultUrl: url,
+                  }
                 : v,
             ),
           );
@@ -213,12 +271,17 @@ export default function VideoStickerCreate() {
         } catch (err) {
           console.error(`Error processing video ${videoId}:`, err);
           setVideos((prev) =>
-            prev.map((v) => (v.id === videoId ? { ...v, status: "error" } : v)),
+            prev.map((v) =>
+              v.id === videoId
+                ? { ...v, status: "error", statusText: "Conversion Failed" }
+                : v,
+            ),
           );
+        } finally {
+          // Clean up event listeners
+          ffmpeg.off("progress", progressCallback);
+          ffmpeg.off("log", logCallback);
         }
-
-        // Clean up event listener
-        ffmpeg.off("progress", () => {});
       }
     } catch (err) {
       console.error(err);
@@ -227,6 +290,47 @@ export default function VideoStickerCreate() {
       );
     } finally {
       setIsConverting(false);
+    }
+  };
+
+  const handleCreateStickerPack = async () => {
+    const doneVideos = videos.filter((v) => v.status === "done" && v.resultUrl);
+    if (doneVideos.length === 0) return;
+    setIsTransferring(true);
+    setGlobalError(null);
+
+    try {
+      const files: File[] = [];
+
+      for (let i = 0; i < doneVideos.length; i++) {
+        const video = doneVideos[i];
+        const response = await fetch(video.resultUrl!);
+        const blob = await response.blob();
+
+        const timestamp = Date.now();
+        const filename = `animated_sticker_${i + 1}_${timestamp}.webp`;
+        const file = new File([blob], filename, {
+          type: "image/webp",
+        });
+        files.push(file);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("navigate-tab", { detail: "create" }),
+      );
+
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("import-files", { detail: files }),
+        );
+      }, 100);
+    } catch (err) {
+      console.error(err);
+      setGlobalError(
+        "Failed to transfer stickers to the pack. Please try again.",
+      );
+    } finally {
+      setIsTransferring(false);
     }
   };
 
@@ -283,6 +387,63 @@ export default function VideoStickerCreate() {
             <p className="text-sm font-medium">{globalError}</p>
           </div>
         )}
+
+        {/* Step Indicator */}
+        <div className="max-w-3xl mx-auto w-full mb-12">
+          <div className="flex items-center justify-between relative px-2">
+            {/* Background Line */}
+            <div className="absolute top-1/2 left-0 right-0 h-1 bg-zinc-100 dark:bg-zinc-800 -translate-y-1/2 rounded-full z-0" />
+
+            {/* Active Highlight Line */}
+            <div
+              className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 -translate-y-1/2 rounded-full transition-all duration-500 z-0"
+              style={{
+                width: step === 1 ? "0%" : step === 2 ? "50%" : "100%",
+              }}
+            />
+
+            {[
+              { num: 1, title: "Upload", desc: "Select source video" },
+              { num: 2, title: "Process", desc: "Crop, Square & Compress" },
+              { num: 3, title: "Sticker Pack", desc: "Convert to pack" },
+            ].map((s) => {
+              const isCompleted = step > s.num;
+              const isActive = step === s.num;
+              return (
+                <div
+                  key={s.num}
+                  className="flex flex-col items-center relative z-10"
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-500 ${
+                      isCompleted
+                        ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                        : isActive
+                          ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-xl scale-110"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-zinc-700"
+                    }`}
+                  >
+                    {isCompleted ? <Check className="w-5 h-5" /> : s.num}
+                  </div>
+                  <span
+                    className={`text-xs font-bold mt-2 ${
+                      isActive
+                        ? "text-emerald-500"
+                        : isCompleted
+                          ? "text-zinc-700 dark:text-zinc-300"
+                          : "text-zinc-400"
+                    }`}
+                  >
+                    {s.title}
+                  </span>
+                  <span className="hidden sm:inline text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    {s.desc}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <AnimatePresence mode="wait">
           {step === 1 && (
@@ -443,9 +604,14 @@ export default function VideoStickerCreate() {
                                   style={{ width: `${video.progress}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] text-white mt-1 font-bold">
+                              <span className="text-[10px] text-white mt-1 font-bold text-center">
                                 {video.progress}%
                               </span>
+                              {video.statusText && (
+                                <span className="text-[9px] text-zinc-300 mt-1 font-medium text-center truncate max-w-full px-1">
+                                  {video.statusText}
+                                </span>
+                              )}
                             </div>
                           )}
 
@@ -485,14 +651,31 @@ export default function VideoStickerCreate() {
                 Ready to Share!
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 mb-12 text-lg">
-                Your animated stickers are ready. Download them and import
-                directly into WhatsApp.
+                Your animated stickers are ready. Convert them directly into a
+                sticker pack or download them!
               </p>
 
               <div className="flex flex-col gap-4 max-w-sm mx-auto">
                 <button
+                  onClick={handleCreateStickerPack}
+                  disabled={isTransferring}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 px-8 rounded-full font-bold text-lg hover:scale-105 transition-all flex items-center justify-center gap-3 shadow-xl disabled:opacity-50"
+                >
+                  {isTransferring ? (
+                    <>
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      Converting...
+                    </>
+                  ) : (
+                    <>
+                      <Sticker className="w-6 h-6 text-emerald-100" />
+                      Convert to Sticker Pack
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={downloadAll}
-                  className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-4 px-8 rounded-full font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-3 shadow-xl"
+                  className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-4 px-8 rounded-full font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-3 shadow-md"
                 >
                   <Package className="w-6 h-6" />
                   Download ZIP
