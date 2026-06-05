@@ -16,6 +16,10 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 1000
   }
 }
 
+// Global in-memory cache for VQD tokens to speed up repeated or related searches
+const vqdCache = new Map<string, { token: string, expiry: number }>();
+const VQD_TTL = 1000 * 60 * 10; // 10 minutes
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -40,10 +44,19 @@ async function startServer() {
       
       // Step 1: Get VQD token if not provided
       if (!vqd) {
+        const normalizedQuery = query.trim().toLowerCase();
+        const cached = vqdCache.get(normalizedQuery);
+        if (cached && cached.expiry > Date.now()) {
+          vqd = cached.token;
+        }
+      }
+
+      if (!vqd) {
         const randIp = '17.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256);
         let html = "";
         
         try {
+          // Direct DDG fetch - very fast timeout because it's often blocked on Vercel
           const ddgHtmlRes = await fetchWithTimeout(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`, {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -51,17 +64,16 @@ async function startServer() {
               "True-Client-IP": randIp,
               "Accept-Language": "en-US,en;q=0.9"
             }
-          });
+          }, 2500);
           html = await ddgHtmlRes.text();
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
         
         let vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
         
         if (!vqdMatch) {
           try {
-            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
+            // First proxy fallback
+            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`, {}, 5000);
             html = await proxyRes.text();
             vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
           } catch(e) {}
@@ -69,12 +81,18 @@ async function startServer() {
 
         if (vqdMatch && vqdMatch[1]) {
           vqd = vqdMatch[1];
+          // Cache the found token
+          vqdCache.set(query.trim().toLowerCase(), { token: vqd, expiry: Date.now() + VQD_TTL });
         } else {
           try {
-            const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
+            // Last resort proxy
+            const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`, {}, 5000);
             html = await fallbackRes.text();
             vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
-            if (vqdMatch && vqdMatch[1]) vqd = vqdMatch[1];
+            if (vqdMatch && vqdMatch[1]) {
+              vqd = vqdMatch[1];
+              vqdCache.set(query.trim().toLowerCase(), { token: vqd, expiry: Date.now() + VQD_TTL });
+            }
           } catch (e) {}
         }
         

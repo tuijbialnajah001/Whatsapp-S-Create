@@ -12,6 +12,16 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 1000
   }
 }
 
+// Global in-memory cache for VQD tokens to speed up repeated or related searches
+// Note: In serverless environments like Vercel, this is only preserved during warm starts.
+const vqdCache = new Map<string, { token: string, expiry: number }>();
+const VQD_TTL = 1000 * 60 * 10; // 10 minutes
+
+// Global in-memory cache for VQD tokens to speed up repeated or related searches
+// Note: In serverless environments like Vercel, this is only preserved during warm starts.
+const vqdCache = new Map<string, { token: string, expiry: number }>();
+const VQD_TTL = 1000 * 60 * 10; // 10 minutes
+
 export default async function handler(req: any, res: any) {
   const query = req.query.q as string;
   const vqdParam = req.query.vqd as string;
@@ -26,10 +36,19 @@ export default async function handler(req: any, res: any) {
     
     // Step 1: Get VQD token if not provided
     if (!vqd) {
+      const normalizedQuery = query.trim().toLowerCase();
+      const cached = vqdCache.get(normalizedQuery);
+      if (cached && cached.expiry > Date.now()) {
+        vqd = cached.token;
+      }
+    }
+
+    if (!vqd) {
       const randIp = '17.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256);
       let html = "";
       
       try {
+        // Direct DDG fetch - fast timeout for Vercel
         const ddgHtmlRes = await fetchWithTimeout(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -37,14 +56,14 @@ export default async function handler(req: any, res: any) {
             "True-Client-IP": randIp,
             "Accept-Language": "en-US,en;q=0.9"
           }
-        });
+        }, 2500);
         html = await ddgHtmlRes.text();
       } catch(e) {}
       
       let vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
       if (!vqdMatch) {
           try {
-            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
+            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`, {}, 5000);
             html = await proxyRes.text();
             vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
           } catch(e) {}
@@ -52,12 +71,16 @@ export default async function handler(req: any, res: any) {
         
       if (vqdMatch && vqdMatch[1]) {
         vqd = vqdMatch[1];
+        vqdCache.set(query.trim().toLowerCase(), { token: vqd, expiry: Date.now() + VQD_TTL });
       } else {
           try {
-            const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
+            const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`, {}, 5000);
             html = await fallbackRes.text();
             vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
-            if (vqdMatch && vqdMatch[1]) vqd = vqdMatch[1];
+            if (vqdMatch && vqdMatch[1]) {
+              vqd = vqdMatch[1];
+              vqdCache.set(query.trim().toLowerCase(), { token: vqd, expiry: Date.now() + VQD_TTL });
+            }
           } catch (e) {}
       }
       

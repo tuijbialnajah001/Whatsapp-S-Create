@@ -91,6 +91,14 @@ const ImageCard = React.memo(({ img, isSelected, onToggle }: any) => {
   );
 });
 
+const SkeletonCard = () => (
+  <div className="relative rounded-3xl overflow-hidden break-inside-avoid shadow-sm mb-6 bg-zinc-200 dark:bg-zinc-800 animate-pulse min-h-[220px]">
+    <div className="absolute inset-0 flex items-center justify-center">
+      <Loader2 className="w-10 h-10 text-zinc-300 dark:text-zinc-700 animate-spin" />
+    </div>
+  </div>
+);
+
 export default function ExploreImages() {
   const [images, setImages] = useState<any[]>(memoryCache.images);
   const [searchQuery, setSearchQuery] = useState(memoryCache.searchQuery);
@@ -103,6 +111,7 @@ export default function ExploreImages() {
     "none" | "zip" | "individual" | "sticker"
   >("none");
   const [hasSearched, setHasSearched] = useState(memoryCache.hasSearched);
+  const abortControllerRef = React.useRef<AbortController | null>(null);
 
   // Sync query to memory cache and local storage
   useEffect(() => {
@@ -126,14 +135,26 @@ export default function ExploreImages() {
   const fetchImages = async (query: string) => {
     if (!query.trim()) return;
 
+    // Abort previous search if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const normalizedQuery = query.trim().toLowerCase();
 
     setLoading(true);
     setError(null);
-    setImages([]);
     setSelectedIds(new Set());
     setHasSearched(true);
     memoryCache.hasSearched = true;
+
+    // Don't clear images immediately to avoid white flash
+    // Just show a small loading state if we already have images
+    if (images.length === 0) {
+      setImages([]);
+    }
 
     try {
       let allResults: any[] = [];
@@ -145,11 +166,13 @@ export default function ExploreImages() {
         if (i > 0 && !currentNext) break;
         if (allResults.length >= 250) break;
 
+        if (controller.signal.aborted) return;
+
         let url = `/api/search?q=${encodeURIComponent(query)}`;
         if (currentVqd) url += `&vqd=${encodeURIComponent(currentVqd)}`;
         if (currentNext) url += `&next=${encodeURIComponent(currentNext)}`;
 
-        const response = await fetchWithTimeout(url, 15000);
+        const response = await fetch(url, { signal: controller.signal });
 
         if (!response.ok) {
           if (i === 0) {
@@ -163,6 +186,7 @@ export default function ExploreImages() {
         }
 
         const data = await response.json();
+        if (controller.signal.aborted) return;
 
         if (data.results && data.results.length > 0) {
           allResults = [...allResults, ...data.results];
@@ -512,12 +536,21 @@ export default function ExploreImages() {
               onToggle={toggleSelection}
             />
           ))}
-          {/* Show small loader at bottom if still fetching more pages */}
-          {loading && images.length > 0 && (
-            <div className="col-span-full flex justify-center py-8">
-              <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-            </div>
+          {/* Show skeletons while loading first page if we cleared images, or show at bottom if loading more */}
+          {loading && (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
           )}
+        </div>
+      ) : hasSearched && loading ? (
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-6 pb-10">
+          {[...Array(8)].map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : hasSearched ? (
         <div className="flex flex-col items-center justify-center py-32 text-center">
