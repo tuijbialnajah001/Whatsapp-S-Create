@@ -441,10 +441,6 @@ export default function ExploreImages() {
             Search
           </button>
         </form>
-        <p className="text-center text-xs font-semibold text-zinc-400 dark:text-zinc-500 flex items-center justify-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5" />
-          Powered by Bing Image Search • SafeSearch Enabled
-        </p>
       </div>
 
       {/* Action Bar (Select All / Download) */}

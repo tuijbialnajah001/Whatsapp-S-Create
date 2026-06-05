@@ -35,71 +35,62 @@ async function startServer() {
       return res.status(400).json({ error: "Query parameter 'q' is required" });
     }
 
-    const offset = parseInt(nextParam) || 1;
-    let results: any[] = [];
-    let nextOffset = offset + 50;
-
     try {
-      // Try Bing Image Search First
-      const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&first=${offset}&count=50`;
-      const bingRes = await fetchWithTimeout(bingUrl, {
+      let vqd = vqdParam;
+      
+      // Step 1: Get VQD token if not provided
+      if (!vqd) {
+        const ddgHtmlRes = await fetchWithTimeout(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Cookie": "SRCHHPGUSR=ADLT=STRICT&NRSLT=50;"
           }
-      }, 10000);
+        });
+        const html = await ddgHtmlRes.text();
+        const vqdMatch = html.match(/vqd=([\d-]+)/);
+        if (vqdMatch && vqdMatch[1]) {
+          vqd = vqdMatch[1];
+        } else {
+          throw new Error("Could not acquire search token.");
+        }
+      }
 
-      const html = await bingRes.text();
+      // Step 2: Fetch Images
+      // p=1 means Strict SafeSearch in DuckDuckGo
+      const url = nextParam 
+        ? `https://duckduckgo.com${nextParam}&vqd=${vqd}`
+        : `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,&p=1`;
+
+      const searchRes = await fetchWithTimeout(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "application/json, text/javascript, */*; q=0.01",
+          "Referer": "https://duckduckgo.com/"
+        }
+      });
+
+      if (!searchRes.ok) {
+        throw new Error(`DuckDuckGo API responded with status: ${searchRes.status}`);
+      }
+
+      const data = await searchRes.json();
       
-      // 1. Try finding murl in standard json-like structures
-      const murlRegex = /"murl":"([^"]+)"/g;
-      let match;
-      while ((match = murlRegex.exec(html)) !== null) {
-          results.push(match[1]);
+      if (!data.results || data.results.length === 0) {
+        return res.json({ results: [], vqd, next: null });
       }
 
-      // 2. Try HTML entity encoded murls
-      const encodedMurlRegex = /murl&quot;:&quot;(.*?)&quot;/g;
-      while ((match = encodedMurlRegex.exec(html)) !== null) {
-          results.push(match[1]);
-      }
-
-      // 3. Fallback: get any high-res image url ending in jpg/png/webp if we don't have enough
-      if (results.length < 10) {
-          const generalRegex = /https?:\/\/[^"'\s<>]+?\.(?:jpg|jpeg|png|webp)/gi;
-          const generalMatches = html.match(generalRegex) || [];
-          results.push(...generalMatches);
-      }
-
-      // Remove obvious non-result images (icons, logos)
-      const filteredResults = results.filter(url => 
-        !url.includes('bing.com/') && 
-        !url.includes('microsoft.com/') && 
-        !url.includes('favicon') && 
-        !url.includes('profile')
-      );
-
-      // Make unique
-      const uniqueUrls = Array.from(new Set(filteredResults));
-
-      if (uniqueUrls.length === 0) {
-         throw new Error("No images found for this query on Bing.");
-      }
-
-      const mappedResults = uniqueUrls.map((url: string) => ({
-        id: url,
-        url: url,
-        thumbnail: url,
-        title: query,
-        width: 800,
-        height: 600
+      const mappedResults = data.results.map((item: any) => ({
+        id: item.image,
+        url: item.image,
+        thumbnail: item.thumbnail,
+        title: item.title,
+        width: item.width,
+        height: item.height
       }));
 
-      res.json({ 
+      res.json({
         results: mappedResults,
-        vqd: "",
-        next: nextOffset.toString()
+        vqd: vqd,
+        next: data.next
       });
 
     } catch (error: any) {
