@@ -41,20 +41,47 @@ async function startServer() {
       // Step 1: Get VQD token if not provided
       if (!vqd) {
         const randIp = '17.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256);
-        const ddgHtmlRes = await fetchWithTimeout(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "X-Forwarded-For": randIp,
-            "True-Client-IP": randIp,
-            "Accept-Language": "en-US,en;q=0.9"
+        let html = "";
+        
+        try {
+          const ddgHtmlRes = await fetchWithTimeout(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "X-Forwarded-For": randIp,
+              "True-Client-IP": randIp,
+              "Accept-Language": "en-US,en;q=0.9"
+            }
+          });
+          html = await ddgHtmlRes.text();
+        } catch (e) {
+          // ignore
+        }
+        
+        let vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+        
+        if (!vqdMatch) {
+          try {
+            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query + '&t=h_&ia=web')}`);
+            html = await proxyRes.text();
+            vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+          } catch(e) {
+            // ignore
           }
-        });
-        const html = await ddgHtmlRes.text();
-        // Try multiple patterns to extract vqd
-        const vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+        }
+
         if (vqdMatch && vqdMatch[1]) {
           vqd = vqdMatch[1];
         } else {
+          try {
+            // Ultimate fallback for VQD: trying lite proxy
+            const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
+            html = await fallbackRes.text();
+            vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+            if (vqdMatch && vqdMatch[1]) vqd = vqdMatch[1];
+          } catch (e) {}
+        }
+        
+        if (!vqd) {
           throw new Error("Could not acquire search token from DuckDuckGo. (Vercel IP might be blocked)");
         }
       }
@@ -65,7 +92,7 @@ async function startServer() {
         ? `https://duckduckgo.com${nextParam.startsWith('/') ? nextParam : '/' + nextParam}&vqd=${vqd}`
         : `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,&p=1`;
 
-      const searchRes = await fetchWithTimeout(url, {
+      let searchRes = await fetchWithTimeout(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -74,12 +101,27 @@ async function startServer() {
           "Accept-Language": "en-US,en;q=0.9"
         }
       });
+      
+      let data: any;
 
       if (!searchRes.ok) {
-        throw new Error(`DuckDuckGo API responded with status: ${searchRes.status}`);
+        // Fallback to proxy
+        try {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+          searchRes = await fetchWithTimeout(proxyUrl);
+          if (searchRes.ok) {
+            data = await searchRes.json();
+          }
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        data = await searchRes.json();
       }
 
-      const data = await searchRes.json();
+      if (!data) {
+        throw new Error(`DuckDuckGo API responded with status: ${searchRes.status}`);
+      }
       
       if (!data.results || data.results.length === 0) {
         return res.json({ results: [], vqd, next: null });
