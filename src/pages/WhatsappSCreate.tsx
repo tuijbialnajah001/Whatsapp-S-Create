@@ -73,6 +73,7 @@ const ManualCropModal = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgStyle, setImgStyle] = useState({ width: 0, height: 0 });
+  const [zoom, setZoom] = useState(1);
   const [dragConstraints, setDragConstraints] = useState({
     top: 0,
     left: 0,
@@ -104,17 +105,32 @@ const ManualCropModal = ({
 
     setImgStyle({ width: renderW, height: renderH });
 
-    setDragConstraints({
-      top: container.height - renderH,
-      left: container.width - renderW,
-      right: 0,
-      bottom: 0,
-    });
-
     // Center initially
     x.set((container.width - renderW) / 2);
     y.set((container.height - renderH) / 2);
   };
+
+  useEffect(() => {
+    if (!containerRef.current || !imgStyle.width) return;
+    const container = containerRef.current.getBoundingClientRect();
+    const scaledW = imgStyle.width * zoom;
+    const scaledH = imgStyle.height * zoom;
+
+    const minX = Math.min(0, container.width - scaledW);
+    const minY = Math.min(0, container.height - scaledH);
+
+    setDragConstraints({
+      top: minY,
+      left: minX,
+      right: 0,
+      bottom: 0,
+    });
+
+    if (x.get() < minX) x.set(minX);
+    if (y.get() < minY) y.set(minY);
+    if (x.get() > 0) x.set(0);
+    if (y.get() > 0) y.set(0);
+  }, [zoom, imgStyle]);
 
   const handleSave = () => {
     if (!containerRef.current || !imgRef.current) return;
@@ -124,7 +140,7 @@ const ManualCropModal = ({
     const container = containerRef.current.getBoundingClientRect();
     const naturalW = imgRef.current.naturalWidth;
 
-    const scale = naturalW / imgStyle.width;
+    const scale = naturalW / (imgStyle.width * zoom);
 
     const cropX = Math.abs(tx) * scale;
     const cropY = Math.abs(ty) * scale;
@@ -149,7 +165,7 @@ const ManualCropModal = ({
               Adjust Image
             </h3>
             <p className="text-sm text-zinc-500 mt-2 font-medium">
-              Drag to reposition within the frame
+              Drag or zoom to reposition within the frame
             </p>
           </div>
           <button
@@ -160,37 +176,51 @@ const ManualCropModal = ({
           </button>
         </div>
 
-        <div className="p-6 md:p-10 flex flex-1 justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden min-h-[400px]">
-          <div
-            ref={containerRef}
-            className="relative overflow-hidden bg-checkerboard shadow-inner border-2 border-zinc-200 dark:border-zinc-800"
-            style={{
-              width: "100%",
-              aspectRatio: targetRatio,
-              maxWidth: "500px",
-              maxHeight: "500px",
-              borderRadius: "0",
-            }}
-          >
-            <motion.img
-              ref={imgRef}
-              src={img.previewUrl}
-              onLoad={onLoad}
-              drag
-              dragConstraints={dragConstraints}
-              dragElastic={0}
-              dragMomentum={false}
+        <div className="p-6 md:p-10 flex flex-1 flex-col justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden min-h-[400px]">
+          <div className="flex-1 flex justify-center items-center">
+            <div
+              ref={containerRef}
+              className="relative overflow-hidden bg-checkerboard shadow-inner border-2 border-zinc-200 dark:border-zinc-800 touch-none"
               style={{
-                x,
-                y,
-                width: imgStyle.width,
-                height: imgStyle.height,
-                position: "absolute",
-                top: 0,
-                left: 0,
-                maxWidth: "none",
+                width: "100%",
+                aspectRatio: targetRatio,
+                maxWidth: "500px",
+                maxHeight: "500px",
+                borderRadius: "0",
               }}
-              className="origin-top-left cursor-grab active:cursor-grabbing"
+            >
+              <motion.img
+                ref={imgRef}
+                src={img.previewUrl}
+                onLoad={onLoad}
+                drag
+                dragConstraints={dragConstraints}
+                dragElastic={0}
+                dragMomentum={false}
+                style={{
+                  x,
+                  y,
+                  width: imgStyle.width * zoom,
+                  height: imgStyle.height * zoom,
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  maxWidth: "none",
+                }}
+                className="origin-top-left cursor-grab active:cursor-grabbing"
+              />
+            </div>
+          </div>
+          <div className="mt-8 px-4 flex items-center gap-4">
+            <span className="text-sm font-bold text-zinc-500">Zoom</span>
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.01"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
             />
           </div>
         </div>
@@ -242,7 +272,7 @@ const ImageGridItem = React.memo(
         <img
           src={img.croppedUrl || img.previewUrl}
           alt="Preview"
-          className="w-full h-full object-contain p-3 drop-shadow-lg transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+          className="w-full h-full object-contain p-1 drop-shadow-md transition-transform duration-500 group-hover:scale-105 pointer-events-none"
           loading="lazy"
           decoding="async"
         />
@@ -1006,10 +1036,10 @@ export default function WhatsappSCreate() {
                   </div>
 
                   {/* Grid */}
-                  <div className="p-8 bg-zinc-50/30 dark:bg-black/10 flex-1 overflow-y-auto custom-scrollbar">
+                  <div className="p-4 md:p-8 bg-zinc-50/30 dark:bg-black/10 flex-1 overflow-y-auto custom-scrollbar">
                     <motion.div
                       layout
-                      className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
+                      className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6"
                     >
                       <AnimatePresence mode="popLayout">
                         {images.map((img) => (
