@@ -78,7 +78,7 @@ const ImageCard = React.memo(({ img, isSelected, onToggle }: any) => {
         </div>
       )}
       <img
-        src={img.thumbnail || img.url}
+        src={`/api/proxy-image?url=${encodeURIComponent(img.thumbnail || img.url)}`}
         alt={img.title}
         onLoad={() => setIsLoaded(true)}
         className={`w-full object-cover transform transition-all duration-700 ${isLoaded ? "opacity-100" : "opacity-0"} ${isSelected ? "scale-105" : "group-hover:scale-105"}`}
