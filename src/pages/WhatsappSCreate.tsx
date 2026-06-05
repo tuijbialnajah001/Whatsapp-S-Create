@@ -342,6 +342,8 @@ export default function WhatsappSCreate() {
   );
   const [isRestoring, setIsRestoring] = useState(true);
   const [allowAnimated, setAllowAnimated] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
 
   useEffect(() => {
     const restoreFromIDB = async () => {
@@ -583,8 +585,29 @@ export default function WhatsappSCreate() {
     addToHistory(newImages);
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileUpload(e.dataTransfer.files);
     }
@@ -893,8 +916,41 @@ export default function WhatsappSCreate() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full flex-1 flex flex-col"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={handleDrop}
+      className="w-full flex-1 flex flex-col relative"
     >
+      {/* Global Drag Overlay */}
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-emerald-500/10 backdrop-blur-[2px] flex items-center justify-center p-6 pointer-events-none"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-12 shadow-2xl border-4 border-dashed border-emerald-500 flex flex-col items-center gap-6"
+            >
+              <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-inner">
+                <Upload className="w-12 h-12" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Drop to Upload</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 font-medium">Add images or ZIP packs to your sticker pack</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col pt-8">
         <AnimatePresence mode="wait">
           {/* Step 1: Upload */}
