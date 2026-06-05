@@ -57,7 +57,7 @@ async function startServer() {
       // Step 2: Fetch Images
       // p=1 means Strict SafeSearch in DuckDuckGo
       const url = nextParam 
-        ? `https://duckduckgo.com${nextParam}&vqd=${vqd}`
+        ? `https://duckduckgo.com${nextParam.startsWith('/') ? nextParam : '/' + nextParam}&vqd=${vqd}`
         : `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,&p=1`;
 
       const searchRes = await fetchWithTimeout(url, {
