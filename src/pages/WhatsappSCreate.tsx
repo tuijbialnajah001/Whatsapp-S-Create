@@ -21,6 +21,7 @@ import {
   Undo2,
   Redo2,
   Archive,
+  Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence, useMotionValue } from "motion/react";
 
@@ -134,38 +135,41 @@ const ManualCropModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-zinc-900/90 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-zinc-900/95 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-md">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ type: "spring", damping: 25, stiffness: 400 }}
-        className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col border border-zinc-200/50 dark:border-zinc-800/50"
+        className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col border border-zinc-200/50 dark:border-zinc-800/50 max-h-[90vh]"
       >
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
           <div>
-            <h3 className="font-bold text-xl text-zinc-900 dark:text-white">
+            <h3 className="font-bold text-2xl text-zinc-900 dark:text-white leading-none">
               Adjust Image
             </h3>
-            <p className="text-xs text-zinc-500 mt-1">Drag to reposition</p>
+            <p className="text-sm text-zinc-500 mt-2 font-medium">
+              Drag to reposition within the frame
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"
+            className="p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-8 flex justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="p-6 md:p-10 flex flex-1 justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden min-h-[400px]">
           <div
             ref={containerRef}
-            className="relative overflow-hidden bg-checkerboard rounded-2xl shadow-inner border border-zinc-200 dark:border-zinc-800"
+            className="relative overflow-hidden bg-checkerboard shadow-inner border-2 border-zinc-200 dark:border-zinc-800"
             style={{
               width: "100%",
               aspectRatio: targetRatio,
-              maxWidth: "300px",
-              maxHeight: "400px",
+              maxWidth: "500px",
+              maxHeight: "500px",
+              borderRadius: "0",
             }}
           >
             <motion.img
@@ -220,28 +224,9 @@ const ImageGridItem = React.memo(
     removeImage: (id: string) => void;
     onLongPress: (img: UploadedImage) => void;
   }) => {
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-    const startPress = () => {
-      timerRef.current = setTimeout(() => {
-        onLongPress(img);
-      }, 250); // Reduced from 500ms to 250ms for faster response
-    };
-
-    const cancelPress = () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-
     return (
       <motion.div
         layout
-        onPointerDown={startPress}
-        onPointerUp={cancelPress}
-        onPointerLeave={cancelPress}
-        onPointerCancel={cancelPress}
         onContextMenu={(e) => e.preventDefault()} // Prevent native context menu on mobile
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -252,8 +237,7 @@ const ImageGridItem = React.memo(
           damping: 30,
           mass: 1,
         }}
-        style={{ WebkitTouchCallout: "none", userSelect: "none" }} // Prevent text selection/callout
-        className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md cursor-pointer touch-none"
+        className="group relative aspect-square rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-checkerboard shadow-sm transition-shadow duration-300 hover:shadow-md"
       >
         <img
           src={img.croppedUrl || img.previewUrl}
@@ -267,9 +251,20 @@ const ImageGridItem = React.memo(
         <button
           onClick={(e) => {
             e.stopPropagation();
+            onLongPress(img);
+          }}
+          className="absolute top-2 right-2 bg-emerald-500 text-white p-2 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-emerald-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+          title="Edit Sticker"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
             removeImage(img.id);
           }}
-          className="absolute top-2 right-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-1.5 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 md:opacity-0 md:group-hover:opacity-100"
+          className="absolute top-2 left-2 bg-white/90 dark:bg-zinc-800/90 text-zinc-500 hover:text-red-500 p-2 rounded-full shadow-md transition-all transform hover:scale-110 active:scale-95 z-20 border border-zinc-200 dark:border-zinc-700 opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
           title="Remove Sticker"
         >
           <X className="w-3.5 h-3.5" />
@@ -452,7 +447,8 @@ export default function WhatsappSCreate() {
     }
   };
 
-  const handleFileUploadRef = React.useRef<(files: FileList | File[]) => void>();
+  const handleFileUploadRef =
+    React.useRef<(files: FileList | File[]) => void>();
 
   useEffect(() => {
     handleFileUploadRef.current = handleFileUpload;
@@ -1013,7 +1009,7 @@ export default function WhatsappSCreate() {
                   <div className="p-8 bg-zinc-50/30 dark:bg-black/10 flex-1 overflow-y-auto custom-scrollbar">
                     <motion.div
                       layout
-                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
+                      className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
                     >
                       <AnimatePresence mode="popLayout">
                         {images.map((img) => (
