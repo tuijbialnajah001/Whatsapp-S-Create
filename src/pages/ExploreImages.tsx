@@ -15,8 +15,7 @@ import { motion } from "motion/react";
 import JSZip from "jszip";
 
 // --- Global Cache for RAM & Browser Storage ---
-const CACHE_KEY = "explore_images_state";
-const QUERY_CACHE_KEY = "explore_query_cache";
+const SAVED_QUERY_KEY = "explore_saved_query";
 
 let memoryCache = {
   images: [] as any[],
@@ -25,25 +24,14 @@ let memoryCache = {
   selectedIds: new Set<string>(),
 };
 
-let queryCache: Record<string, any[]> = {};
-
-// Load from local storage on initial script execution
+// Load ONLY search query from local storage on initial script execution
 try {
-  const savedState = localStorage.getItem(CACHE_KEY);
-  if (savedState) {
-    const parsed = JSON.parse(savedState);
-    memoryCache.images = parsed.images || [];
-    memoryCache.searchQuery = parsed.searchQuery || "";
-    memoryCache.hasSearched = parsed.hasSearched || false;
-    memoryCache.selectedIds = new Set(parsed.selectedIds || []);
-  }
-
-  const savedQueries = localStorage.getItem(QUERY_CACHE_KEY);
-  if (savedQueries) {
-    queryCache = JSON.parse(savedQueries);
+  const savedQuery = localStorage.getItem(SAVED_QUERY_KEY);
+  if (savedQuery) {
+    memoryCache.searchQuery = savedQuery;
   }
 } catch (e) {
-  console.error("Failed to load cache", e);
+  console.error("Failed to load search query configuration", e);
 }
 
 // --- Robust Fetch Helpers ---
@@ -116,45 +104,36 @@ export default function ExploreImages() {
   >("none");
   const [hasSearched, setHasSearched] = useState(memoryCache.hasSearched);
 
-  // Sync state to memory cache and session storage
+  // Sync query to memory cache and local storage
   useEffect(() => {
-    memoryCache.images = images;
     memoryCache.searchQuery = searchQuery;
-    memoryCache.hasSearched = hasSearched;
-    memoryCache.selectedIds = selectedIds;
-
     try {
-      localStorage.setItem(
-        CACHE_KEY,
-        JSON.stringify({
-          images,
-          searchQuery,
-          hasSearched,
-          selectedIds: Array.from(selectedIds),
-        }),
-      );
+      localStorage.setItem(SAVED_QUERY_KEY, searchQuery);
     } catch (e) {}
-  }, [images, searchQuery, hasSearched, selectedIds]);
+  }, [searchQuery]);
+
+  // Initial auto search if there's a stored query but we haven't searched yet in this session
+  useEffect(() => {
+    if (searchQuery && !hasSearched && images.length === 0) {
+      fetchImages(searchQuery);
+    }
+  }, []);
+
+  useEffect(() => {
+    memoryCache.selectedIds = selectedIds;
+  }, [selectedIds]);
 
   const fetchImages = async (query: string) => {
     if (!query.trim()) return;
 
     const normalizedQuery = query.trim().toLowerCase();
 
-    // Check query cache first for instant load
-    if (queryCache[normalizedQuery]) {
-      setImages(queryCache[normalizedQuery]);
-      setSelectedIds(new Set());
-      setHasSearched(true);
-      setError(null);
-      return;
-    }
-
     setLoading(true);
     setError(null);
     setImages([]);
     setSelectedIds(new Set());
     setHasSearched(true);
+    memoryCache.hasSearched = true;
 
     try {
       let allResults: any[] = [];
@@ -195,13 +174,8 @@ export default function ExploreImages() {
           const currentBatch = uniqueResults.slice(0, 250);
 
           setImages(currentBatch);
+          memoryCache.images = currentBatch;
           if (i === 0) setLoading(false); // Turn off loading after first batch
-
-          // Update query cache
-          queryCache[normalizedQuery] = currentBatch;
-          try {
-            localStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(queryCache));
-          } catch (e) {}
         } else if (i === 0) {
           throw new Error("No images found for this query.");
         }
