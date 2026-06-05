@@ -41,7 +41,9 @@ export default function App() {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setIsInstallable(true);
+      if (!localStorage.getItem('hasSeenInstallPrompt')) {
+        setIsInstallable(true);
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -57,8 +59,14 @@ export default function App() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
       setIsInstallable(false);
+      localStorage.setItem('hasSeenInstallPrompt', 'true');
     }
     setDeferredPrompt(null);
+  };
+
+  const dismissInstallPrompt = () => {
+    setIsInstallable(false);
+    localStorage.setItem('hasSeenInstallPrompt', 'true');
   };
 
   const handleBugSubmit = (e: React.FormEvent) => {
@@ -81,44 +89,39 @@ export default function App() {
       {/* PWA Install Notification Modal */}
       <AnimatePresence>
         {isInstallable && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsInstallable(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 p-6 flex flex-col items-center text-center mx-auto"
-            >
-              <div className="w-16 h-16 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center shadow-inner mb-4">
-                <Sparkles className="w-8 h-8 text-white" />
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-[400px] z-[110] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col sm:flex-row gap-4 items-center justify-between"
+          >
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="w-10 h-10 shrink-0 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center shadow-inner">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Install Whatsapp Sticker Pack Generator</h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 font-medium">
-                Install our app for a faster, better, and offline experience!
-              </p>
-              
-              <div className="flex w-full gap-3">
-                <button
-                  onClick={() => setIsInstallable(false)}
-                  className="flex-1 py-3 px-4 rounded-xl font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-                >
-                  Not Now
-                </button>
-                <button
-                  onClick={handleInstallClick}
-                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Download className="w-4 h-4" /> Install
-                </button>
+              <div className="text-left flex-1">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">Install Whatsapp Sticker Pack Generator</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Faster, better, offline.
+                </p>
               </div>
-            </motion.div>
-          </div>
+            </div>
+            
+            <div className="flex shrink-0 gap-2 w-full sm:w-auto">
+              <button
+                onClick={dismissInstallPrompt}
+                className="flex-1 sm:flex-none py-2 px-3 rounded-lg font-bold text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={handleInstallClick}
+                className="flex-1 sm:flex-none py-2 px-4 flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold text-xs shadow-md shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95"
+              >
+                <Download className="w-3 h-3" /> Install
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
