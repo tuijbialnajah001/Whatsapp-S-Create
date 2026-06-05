@@ -144,31 +144,12 @@ async function startServer() {
         }
       }
 
-      // Strategy 3: Google referer
+      // Strategy 3: DuckDuckGo referer
       if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
         try {
-          imageResponse = await tryFetch({ "Referer": "https://www.google.com/" });
-        } catch (e) {
-          // Ignore
-        }
-      }
-
-      // Strategy 4: Bing referer
-      if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
-        try {
-          imageResponse = await tryFetch({ "Referer": "https://www.bing.com/" });
+          imageResponse = await tryFetch({ "Referer": "https://duckduckgo.com/" });
         } catch (e) {
           // Ignore fetch errors to try next strategy
-        }
-      }
-
-      // Strategy 5: Google Image Proxy (Ultimate Fallback)
-      if (!imageResponse || !imageResponse.ok) {
-        try {
-          const googleProxyUrl = `https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=${encodeURIComponent(imageUrl)}`;
-          imageResponse = await fetch(googleProxyUrl);
-        } catch (e) {
-          // Ignore
         }
       }
 
