@@ -9,6 +9,7 @@ import {
   Square,
   Archive,
   Sticker,
+  Sparkles,
 } from "lucide-react";
 import { motion } from "motion/react";
 import JSZip from "jszip";
@@ -420,7 +421,7 @@ export default function ExploreImages() {
       <div className="max-w-2xl mx-auto mb-8">
         <form
           onSubmit={handleSearch}
-          className="relative group flex items-center"
+          className="relative group flex items-center mb-2"
         >
           <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
             <Search className="w-5 h-5 text-zinc-400 group-focus-within:text-emerald-500 transition-colors" />
@@ -440,6 +441,10 @@ export default function ExploreImages() {
             Search
           </button>
         </form>
+        <p className="text-center text-xs font-semibold text-zinc-400 dark:text-zinc-500 flex items-center justify-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5" />
+          Powered by Bing Image Search • SafeSearch Enabled
+        </p>
       </div>
 
       {/* Action Bar (Select All / Download) */}
