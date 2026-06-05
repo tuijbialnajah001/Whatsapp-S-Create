@@ -96,17 +96,17 @@ export default function App() {
       {/* Bug Report Button */}
       <button
         onClick={() => setIsBugModalOpen(true)}
-        className="fixed top-4 right-4 z-50 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-lg text-zinc-600 dark:text-zinc-400 hover:text-red-500 hover:border-red-500/50 dark:hover:text-red-400 dark:hover:border-red-500/50 transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-6 z-50 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-xl text-zinc-600 dark:text-zinc-400 hover:text-red-500 hover:border-red-500/50 dark:hover:text-red-400 dark:hover:border-red-500/50 transition-all hover:scale-105 active:scale-95"
         title="Report a Bug"
       >
-        <Bug className="w-5 h-5" />
+        <Bug className="w-6 h-6" />
       </button>
 
       {/* Floating Header & Toggle */}
-      <header className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center w-max max-w-[95%]">
-        <div className="glass-panel rounded-full p-1.5 flex items-center shadow-lg border border-white/20 dark:border-zinc-800/50">
+      <header className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center w-full max-w-[calc(100%-2rem)] sm:w-max">
+        <div className="glass-panel w-full rounded-full p-2 flex items-center shadow-lg border border-white/20 dark:border-zinc-800/50 justify-between sm:justify-start">
           {/* Branding */}
-          <div className="hidden sm:flex items-center gap-2 px-4 border-r border-zinc-200/50 dark:border-zinc-700/50 mr-1">
+          <div className="hidden sm:flex items-center gap-2 px-4 border-r border-zinc-200/50 dark:border-zinc-700/50 mr-2 shrink-0">
             <div className="w-6 h-6 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center shadow-inner">
               <Sparkles className="w-3 h-3 text-white" />
             </div>
@@ -114,7 +114,7 @@ export default function App() {
           </div>
 
           {/* Toggle */}
-          <div className="flex items-center relative w-[200px] sm:w-[240px]">
+          <div className="flex flex-1 items-center relative w-full sm:w-[280px]">
             <div 
               className="absolute inset-y-0 w-1/3 bg-zinc-900 dark:bg-white rounded-full transition-transform duration-300 ease-out shadow-md"
               style={{ transform: activeTab === 'create' ? 'translateX(0)' : activeTab === 'video' ? 'translateX(100%)' : 'translateX(200%)' }}
@@ -122,21 +122,21 @@ export default function App() {
             <button 
               onClick={() => setActiveTab('create')}
               title="Image to Sticker"
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${activeTab === 'create' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 transition-colors ${activeTab === 'create' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
               <ImageIcon className="w-5 h-5" />
             </button>
             <button 
               onClick={() => setActiveTab('video')}
               title="Video to Sticker"
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${activeTab === 'video' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 transition-colors ${activeTab === 'video' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
               <Film className="w-5 h-5" />
             </button>
             <button 
               onClick={() => setActiveTab('explore')}
               title="Explore Stickers"
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${activeTab === 'explore' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 transition-colors ${activeTab === 'explore' ? 'text-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
               <Compass className="w-5 h-5" />
             </button>

@@ -1038,10 +1038,9 @@ export default function WhatsappSCreate() {
                   {/* Grid */}
                   <div className="p-4 md:p-8 bg-zinc-50/30 dark:bg-black/10 flex-1 overflow-y-auto custom-scrollbar">
                     <motion.div
-                      layout
                       className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6"
                     >
-                      <AnimatePresence mode="popLayout">
+                      <AnimatePresence>
                         {images.map((img) => (
                           <ImageGridItem
                             key={img.id}
