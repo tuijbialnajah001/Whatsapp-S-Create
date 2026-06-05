@@ -41,15 +41,13 @@ export default async function handler(req: any, res: any) {
         html = await ddgHtmlRes.text();
       } catch(e) {}
       
-      let vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+      let vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
       if (!vqdMatch) {
           try {
-            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query + '&t=h_&ia=web')}`);
+            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
             html = await proxyRes.text();
-            vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
-          } catch(e) {
-            // ignore
-          }
+            vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
+          } catch(e) {}
       }
         
       if (vqdMatch && vqdMatch[1]) {
@@ -58,7 +56,7 @@ export default async function handler(req: any, res: any) {
           try {
             const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
             html = await fallbackRes.text();
-            vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+            vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
             if (vqdMatch && vqdMatch[1]) vqd = vqdMatch[1];
           } catch (e) {}
       }

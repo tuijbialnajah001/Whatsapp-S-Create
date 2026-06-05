@@ -57,26 +57,23 @@ async function startServer() {
           // ignore
         }
         
-        let vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+        let vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
         
         if (!vqdMatch) {
           try {
-            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query + '&t=h_&ia=web')}`);
+            const proxyRes = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
             html = await proxyRes.text();
-            vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
-          } catch(e) {
-            // ignore
-          }
+            vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
+          } catch(e) {}
         }
 
         if (vqdMatch && vqdMatch[1]) {
           vqd = vqdMatch[1];
         } else {
           try {
-            // Ultimate fallback for VQD: trying lite proxy
             const fallbackRes = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent('https://duckduckgo.com/?q=' + query)}`);
             html = await fallbackRes.text();
-            vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
+            vqdMatch = html.match(/vqd=['"]?([^&'"\s>]+)['"]?/);
             if (vqdMatch && vqdMatch[1]) vqd = vqdMatch[1];
           } catch (e) {}
         }
@@ -159,52 +156,38 @@ async function startServer() {
     try {
       const urlObj = new URL(imageUrl);
       
-      const tryFetch = async (customHeaders: any) => {
-        return await fetch(imageUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "image",
-            "sec-fetch-mode": "no-cors",
-            "sec-fetch-site": "cross-site",
-            ...customHeaders
-          }
-        });
-      };
-
-      // Strategy 1: Same origin referer
-      let imageResponse: Response | null = null;
-      try {
-        imageResponse = await tryFetch({ "Referer": urlObj.origin + "/" });
-      } catch (e) {
-        // Ignore
-      }
-
-      // Strategy 2: No referer
-      if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
-        try {
-          imageResponse = await tryFetch({});
-        } catch (e) {
-          // Ignore
+    const tryFetch = async (customHeaders: any) => {
+      return await fetch(imageUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Referer": "https://duckduckgo.com/",
+          ...customHeaders
         }
-      }
+      });
+    };
 
-      // Strategy 3: DuckDuckGo referer
-      if (!imageResponse || (!imageResponse.ok && [403, 401, 522, 503, 500].includes(imageResponse.status))) {
-        try {
-          imageResponse = await tryFetch({ "Referer": "https://duckduckgo.com/" });
-        } catch (e) {
-          // Ignore fetch errors to try next strategy
-        }
+    let imageResponse: Response | null = null;
+    try {
+      // Primary: DDG referer
+      imageResponse = await tryFetch({ "Referer": "https://duckduckgo.com/" });
+      
+      if (!imageResponse.ok) {
+         // Secondary: Direct
+         imageResponse = await tryFetch({});
       }
+      
+      if (!imageResponse.ok) {
+         // Tertiary: Origin referer
+         imageResponse = await tryFetch({ "Referer": urlObj.origin + "/" });
+      }
+    } catch (e) {
+      console.error("Image proxy fetch error:", e);
+    }
 
-      if (!imageResponse || !imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse ? imageResponse.status : 'Network Error'}`);
-      }
+    if (!imageResponse || !imageResponse.ok) {
+      throw new Error(`Failed to fetch image: ${imageResponse ? imageResponse.status : 'Network Error'}`);
+    }
 
       const contentType = imageResponse.headers.get("content-type");
       if (contentType) {
