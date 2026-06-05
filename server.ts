@@ -46,11 +46,12 @@ async function startServer() {
           }
         });
         const html = await ddgHtmlRes.text();
-        const vqdMatch = html.match(/vqd=([\d-]+)/);
+        // Try multiple patterns to extract vqd
+        const vqdMatch = html.match(/vqd=(3-[^&'"]+)/) || html.match(/vqd=["']?([^&'"\s>]+)["']?/);
         if (vqdMatch && vqdMatch[1]) {
           vqd = vqdMatch[1];
         } else {
-          throw new Error("Could not acquire search token.");
+          throw new Error("Could not acquire search token from DuckDuckGo. (Vercel IP might be blocked)");
         }
       }
 
