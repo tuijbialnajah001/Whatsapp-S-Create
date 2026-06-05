@@ -98,7 +98,7 @@ export default function App() {
               <div className="w-16 h-16 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center shadow-inner mb-4">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Install WA-S-Create</h3>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Install Whatsapp Sticker Pack Generator</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 font-medium">
                 Install our app for a faster, better, and offline experience!
               </p>
