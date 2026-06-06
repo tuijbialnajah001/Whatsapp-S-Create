@@ -17,11 +17,6 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 1000
 const vqdCache = new Map<string, { token: string, expiry: number }>();
 const VQD_TTL = 1000 * 60 * 10; // 10 minutes
 
-// Global in-memory cache for VQD tokens to speed up repeated or related searches
-// Note: In serverless environments like Vercel, this is only preserved during warm starts.
-const vqdCache = new Map<string, { token: string, expiry: number }>();
-const VQD_TTL = 1000 * 60 * 10; // 10 minutes
-
 export default async function handler(req: any, res: any) {
   const query = req.query.q as string;
   const vqdParam = req.query.vqd as string;

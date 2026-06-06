@@ -208,6 +208,7 @@ export default function ExploreImages() {
         currentNext = data.next;
       }
     } catch (err: any) {
+      if (err.name === "AbortError") return;
       console.error("Search Error:", err);
       setError(err.message || "Failed to fetch images. Please try again.");
     } finally {
