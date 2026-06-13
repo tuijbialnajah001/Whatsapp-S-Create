@@ -1,3 +1,5 @@
+import google from 'googlethis';
+
 // Helper to prevent hanging fetches
 async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 10000) {
   const controller = new AbortController();
@@ -78,74 +80,107 @@ export default async function handler(req: any, res: any) {
             }
           } catch (e) {}
       }
-      
-      if (!vqd) {
-        throw new Error("Could not acquire search token from DuckDuckGo. (Vercel IP might be blocked)");
-      }
     }
 
-    // Step 2: Fetch Images
-    // p=1 means Strict SafeSearch in DuckDuckGo
-    let url = "";
-    if (nextParam) {
-      // Fix missing slash if nextParam doesn't have it
-      const safeNext = nextParam.startsWith('/') ? nextParam : `/${nextParam}`;
-      url = `https://duckduckgo.com${safeNext}&vqd=${vqd}`;
-    } else {
-      url = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,&p=1`;
-    }
-
-    let searchRes = await fetchWithTimeout(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Referer": "https://duckduckgo.com/",
-        "X-Forwarded-For": '17.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256),
-        "Accept-Language": "en-US,en;q=0.9"
+    if (vqd) {
+      // Step 2: Fetch Images from DuckDuckGo
+      // p=1 means Strict SafeSearch in DuckDuckGo
+      let url = "";
+      if (nextParam) {
+        // Fix missing slash if nextParam doesn't have it
+        const safeNext = nextParam.startsWith('/') ? nextParam : `/${nextParam}`;
+        url = `https://duckduckgo.com${safeNext}&vqd=${vqd}`;
+      } else {
+        url = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,&p=1`;
       }
-    });
 
-    let data: any;
-    
-    if (!searchRes.ok) {
-        // Fallback to proxy
-        try {
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-          searchRes = await fetchWithTimeout(proxyUrl);
-          if (searchRes.ok) {
-            data = await searchRes.json();
-          }
-        } catch (e) {
-          // ignore
+      let searchRes = await fetchWithTimeout(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "application/json, text/javascript, */*; q=0.01",
+          "Referer": "https://duckduckgo.com/",
+          "X-Forwarded-For": '17.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256) + '.' + Math.floor(Math.random()*256),
+          "Accept-Language": "en-US,en;q=0.9"
         }
-    } else {
-        data = await searchRes.json();
+      });
+
+      let data: any;
+      
+      if (!searchRes.ok) {
+          // Fallback to proxy
+          try {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            searchRes = await fetchWithTimeout(proxyUrl);
+            if (searchRes.ok) {
+              data = await searchRes.json();
+            }
+          } catch (e) {
+            // ignore
+          }
+      } else {
+          data = await searchRes.json();
+      }
+
+      if (data && data.results && data.results.length > 0) {
+        const mappedResults = data.results.map((item: any) => ({
+          id: item.image,
+          url: item.image,
+          thumbnail: item.thumbnail,
+          title: item.title,
+          width: item.width,
+          height: item.height
+        }));
+
+        return res.json({
+          results: mappedResults,
+          vqd: vqd,
+          next: data.next
+        });
+      }
     }
 
-    if (!data) {
-      throw new Error(`DuckDuckGo API responded with status: ${searchRes.status}`);
-    }
+    // IF DUCKDUCKGO FAILS OR IS BLOCKED BY VERCEL, WE FALLBACK TO GOOGLE IMAGE SEARCH
+    console.log("DuckDuckGo failed or was blocked by Vercel. Falling back to Google Image Search...");
     
-    if (!data.results || data.results.length === 0) {
-      return res.json({ results: [], vqd, next: null });
+    const googleImages = await google.image(query, { safe: true });
+    
+    if (googleImages && googleImages.length > 0) {
+      const mappedGoogleResults = googleImages.map((item: any) => ({
+        id: item.id || item.url,
+        url: item.url,
+        thumbnail: item.preview?.url || item.url,
+        title: item.origin?.title || query,
+        width: item.width || 800,
+        height: item.height || 600
+      }));
+
+      return res.json({
+        results: mappedGoogleResults,
+        vqd: vqd || "google-fallback", // return a fake vqd to prevent errors
+        next: null // googlethis doesn't easily support pagination natively without options, we just return the top 100
+      });
     }
 
-    const mappedResults = data.results.map((item: any) => ({
-      id: item.image,
-      url: item.image,
-      thumbnail: item.thumbnail,
-      title: item.title,
-      width: item.width,
-      height: item.height
-    }));
-
-    res.json({
-      results: mappedResults,
-      vqd: vqd,
-      next: data.next
-    });
+    throw new Error("Could not acquire search results from DuckDuckGo or Google.");
 
   } catch (error: any) {
+    // If EVERYTHING fails, we try the absolute last resort fallback
+    try {
+        console.error("DuckDuckGo and Google Image Search both failed. Falling back to safe final fallback...", error.message);
+        const googleImages = await google.image(query, { safe: true });
+        if (googleImages && googleImages.length > 0) {
+          const mappedGoogleResults = googleImages.map((item: any) => ({
+            id: item.id || item.url,
+            url: item.url,
+            thumbnail: item.preview?.url || item.url,
+            title: item.origin?.title || query,
+            width: item.width || 800,
+            height: item.height || 600
+          }));
+          return res.json({ results: mappedGoogleResults, vqd: "google-fallback", next: null });
+        }
+    } catch(e) {}
+    
     console.error("Search API Error:", error);
     res.status(500).json({ error: error.message || "Failed to fetch images" });
   }

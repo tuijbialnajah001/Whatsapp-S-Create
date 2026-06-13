@@ -24,6 +24,7 @@
     "duck-duck-scrape": "^2.2.7",
     "duckduckgo-images-api": "^1.0.5",
     "express": "^4.21.2",
+    "googlethis": "^1.8.0",
     "idb-keyval": "^6.2.2",
     "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
