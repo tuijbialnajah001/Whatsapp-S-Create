@@ -91,8 +91,11 @@ const ImageCard = React.memo(({ img, isSelected, onToggle }: any) => {
   );
 });
 
-const SkeletonCard = () => (
-  <div className="relative rounded-3xl overflow-hidden break-inside-avoid shadow-sm mb-6 bg-zinc-200 dark:bg-zinc-800 animate-pulse min-h-[220px]">
+const SkeletonCard = ({ index }: { index?: number }) => (
+  <div 
+    className="relative rounded-3xl overflow-hidden break-inside-avoid shadow-sm mb-6 bg-zinc-200 dark:bg-zinc-800 animate-pulse"
+    style={{ minHeight: index !== undefined ? `${200 + (index % 3) * 60}px` : '220px' }}
+  >
     <div className="absolute inset-0 flex items-center justify-center">
       <Loader2 className="w-10 h-10 text-zinc-300 dark:text-zinc-700 animate-spin" />
     </div>
@@ -149,12 +152,9 @@ export default function ExploreImages() {
     setSelectedIds(new Set());
     setHasSearched(true);
     memoryCache.hasSearched = true;
-
-    // Don't clear images immediately to avoid white flash
-    // Just show a small loading state if we already have images
-    if (images.length === 0) {
-      setImages([]);
-    }
+    
+    // Clear images immediately to show skeletons and give instant feedback
+    setImages([]);
 
     try {
       let allResults: any[] = [];
@@ -523,9 +523,10 @@ export default function ExploreImages() {
           </button>
         </div>
       ) : loading && images.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32">
-          <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-6" />
-          <p className="text-zinc-500 font-bold text-lg">Searching images...</p>
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-6 pb-10">
+          {[...Array(12)].map((_, i) => (
+            <SkeletonCard key={i} index={i} />
+          ))}
         </div>
       ) : images.length > 0 ? (
         <div className="columns-2 md:columns-3 lg:columns-4 gap-6 pb-10">
@@ -540,17 +541,17 @@ export default function ExploreImages() {
           {/* Show skeletons while loading first page if we cleared images, or show at bottom if loading more */}
           {loading && (
             <>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
+              <SkeletonCard index={0} />
+              <SkeletonCard index={1} />
+              <SkeletonCard index={2} />
+              <SkeletonCard index={3} />
             </>
           )}
         </div>
       ) : hasSearched && loading ? (
         <div className="columns-2 md:columns-3 lg:columns-4 gap-6 pb-10">
           {[...Array(8)].map((_, i) => (
-            <SkeletonCard key={i} />
+            <SkeletonCard key={i} index={i} />
           ))}
         </div>
       ) : hasSearched ? (
