@@ -57,6 +57,7 @@ const AUTHORS = [
   "ͲႮᏆᎫᏴᏆᎪᏞΝΑᎫΑΉ·Kҽɳƈԋσ Aʅʅιαɳƈҽ",
   "𝗚𝗨𝗬 𝗖𝗥𝗜𝗠𝗦𝗢𝗡 ~ 𝗢𝗖𝗧Λ𝗚𝗥Λ𝗠",
   "Tuijbialnajah-frieren-paglu-flat-boobs-lover",
+  "𝙱𝙹𝙴 ~ Vegeta•Nexus",
 ];
 
 const ManualCropModal = ({
