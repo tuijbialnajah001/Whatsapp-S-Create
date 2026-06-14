@@ -159,24 +159,24 @@ const ManualCropModal = ({
         transition={{ type: "spring", damping: 25, stiffness: 400 }}
         className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col border border-zinc-200/50 dark:border-zinc-800/50 max-h-[90vh]"
       >
-        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+        <div className="p-4 md:p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
           <div>
-            <h3 className="font-bold text-2xl text-zinc-900 dark:text-white leading-none">
+            <h3 className="font-bold text-xl md:text-2xl text-zinc-900 dark:text-white leading-none">
               Adjust Image
             </h3>
-            <p className="text-sm text-zinc-500 mt-2 font-medium">
+            <p className="text-xs md:text-sm text-zinc-500 mt-2 font-medium">
               Drag or zoom to reposition within the frame
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"
+            className="p-2 md:p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-full transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 md:w-6 md:h-6" />
           </button>
         </div>
 
-        <div className="p-6 md:p-10 flex flex-1 flex-col justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden min-h-[400px]">
+        <div className="p-4 md:p-10 flex flex-1 flex-col justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden min-h-[50vh] md:min-h-[400px]">
           <div className="flex-1 flex justify-center items-center">
             <div
               ref={containerRef}
@@ -184,8 +184,8 @@ const ManualCropModal = ({
               style={{
                 width: "100%",
                 aspectRatio: targetRatio,
-                maxWidth: "500px",
-                maxHeight: "500px",
+                maxWidth: "min(500px, 100%)",
+                maxHeight: "min(500px, 40vh)",
                 borderRadius: "0",
               }}
             >
@@ -1017,7 +1017,7 @@ export default function WhatsappSCreate() {
             >
               {/* Workspace */}
               <div className="xl:col-span-8 flex flex-col">
-                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[700px] shadow-2xl shadow-zinc-200/20 dark:shadow-black/40">
+                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col aspect-[4/5] md:aspect-auto md:h-[600px] lg:h-[700px] shadow-2xl shadow-zinc-200/20 dark:shadow-black/40">
                   {/* Toolbar */}
                   <div className="px-6 py-4 border-b border-zinc-200/50 dark:border-zinc-800/50 flex flex-wrap items-center justify-between gap-4 bg-white/50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
@@ -1113,7 +1113,7 @@ export default function WhatsappSCreate() {
 
               {/* Inspector */}
               <div className="xl:col-span-4">
-                <div className="glass-panel rounded-3xl shadow-2xl shadow-zinc-200/20 dark:shadow-black/40 p-6 sticky top-28 flex flex-col max-h-[700px]">
+                <div className="glass-panel rounded-3xl shadow-2xl shadow-zinc-200/20 dark:shadow-black/40 p-6 flex flex-col md:max-h-[600px] lg:max-h-[700px] lg:sticky lg:top-28">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
                       <Settings2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
