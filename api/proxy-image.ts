@@ -1,6 +1,8 @@
 export default async function handler(req: any, res: any) {
   const imageUrl = req.query.url as string;
+  const fallbackUrl = req.query.fallbackUrl as string;
   const filename = req.query.filename as string;
+  
   if (!imageUrl) {
     return res.status(400).send("URL is required");
   }
@@ -10,11 +12,9 @@ export default async function handler(req: any, res: any) {
     
     let isBing = imageUrl.includes('bing.net') || imageUrl.includes('bing.com');
     let isYahoo = imageUrl.includes('yimg.com');
-    // If it's Bing or Yahoo, duckduckgo referer might not be the best but it probably doesn't matter.
-    // Wait, earlier the user said 'duckduckgo source hi hona chahiye aur sab hata do'
     
-    const tryFetch = async (customHeaders: any) => {
-      return await fetch(imageUrl, {
+    const tryFetch = async (targetUrl: string, customHeaders: any) => {
+      return await fetch(targetUrl, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
@@ -27,16 +27,24 @@ export default async function handler(req: any, res: any) {
     let imageResponse: Response | null = null;
     try {
       // Primary: DDG referer
-      imageResponse = await tryFetch({ "Referer": "https://duckduckgo.com/" });
+      imageResponse = await tryFetch(imageUrl, { "Referer": "https://duckduckgo.com/" });
       
       if (!imageResponse.ok) {
          // Secondary: Direct
-         imageResponse = await tryFetch({});
+         imageResponse = await tryFetch(imageUrl, {});
       }
       
       if (!imageResponse.ok) {
          // Tertiary: Origin referer
-         imageResponse = await tryFetch({ "Referer": urlObj.origin + "/" });
+         imageResponse = await tryFetch(imageUrl, { "Referer": urlObj.origin + "/" });
+      }
+      
+      // If it STILL fails and we have a fallback thumbnail URL (like from Google or DuckDuckGo proxy), try that
+      if (!imageResponse.ok && fallbackUrl) {
+          imageResponse = await tryFetch(fallbackUrl, { "Referer": "https://duckduckgo.com/" });
+          if (!imageResponse.ok) {
+             imageResponse = await tryFetch(fallbackUrl, {});
+          }
       }
     } catch (e) {
       console.error("Image proxy fetch error:", e);

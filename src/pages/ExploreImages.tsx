@@ -257,7 +257,7 @@ export default function ExploreImages() {
       const trueUniqueId = Math.random().toString(36).substring(2, 8);
       const filename = `𝙱𝙹𝙴 ~ Clan ${safeSearchQuery} ${i + 1}_${trueUniqueId}.jpg`;
 
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`;
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.url)}&fallbackUrl=${encodeURIComponent(img.thumbnail || "")}&filename=${encodeURIComponent(filename)}`;
 
       const a = document.createElement("a");
       a.href = proxyUrl;
@@ -285,9 +285,11 @@ export default function ExploreImages() {
 
       for (let i = 0; i < selectedImgs.length; i++) {
         const img = selectedImgs[i];
-        const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.url)}`;
-        const response = await fetch(proxyUrl);
+        let proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.url)}&fallbackUrl=${encodeURIComponent(img.thumbnail || "")}`;
+        let response = await fetch(proxyUrl);
+        
         if (!response.ok) continue;
+
         const blob = await response.blob();
 
         const safeSearchQuery = searchQuery
@@ -301,11 +303,19 @@ export default function ExploreImages() {
         files.push(file);
       }
 
+      console.log("Successfully fetched blobs for images:", files);
+
+      if (files.length === 0) {
+        throw new Error("Could not download the selected images (blocked by source). Try selecting different images.");
+      }
+
+      console.log("Dispatching navigate-tab to create");
       window.dispatchEvent(
         new CustomEvent("navigate-tab", { detail: "create" })
       );
       // Give it a tiny bit of time to ensure tab has switched, though it shouldn't strictly be needed because it's mounted.
       setTimeout(() => {
+        console.log("Dispatching import-files", files);
         window.dispatchEvent(
           new CustomEvent("import-files", { detail: files })
         );
@@ -499,7 +509,7 @@ export default function ExploreImages() {
               ) : (
                 <Sticker className="w-5 h-5 text-emerald-100" />
               )}
-              Create Sticker
+              Add to Sticker Maker
             </button>
           </div>
         </div>

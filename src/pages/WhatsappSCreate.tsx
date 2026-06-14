@@ -500,31 +500,39 @@ export default function WhatsappSCreate() {
 
   const handleFileUpload = async (files: FileList | File[]) => {
     setIsProcessing(true);
+    console.log("Received files inside handleFileUpload:", files);
     const standardImages: UploadedImage[] = [];
     const zipFiles: File[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const fileName = file.name || "unnamed_file";
+      const fileType = file.type || "";
+      console.log(`Processing file ${i}: name=${fileName}, type=${fileType}`);
       const isZip =
-        file.name.toLowerCase().endsWith(".zip") ||
-        file.type === "application/zip" ||
-        file.type === "application/x-zip-compressed" ||
-        (file.type === "application/octet-stream" &&
-          file.name.toLowerCase().endsWith(".zip"));
+        fileName.toLowerCase().endsWith(".zip") ||
+        fileType === "application/zip" ||
+        fileType === "application/x-zip-compressed" ||
+        (fileType === "application/octet-stream" &&
+          fileName.toLowerCase().endsWith(".zip"));
       const isImage =
-        file.type.startsWith("image/") ||
-        file.name.match(
+        fileType.startsWith("image/") ||
+        fileName.toLowerCase().match(
           /\.(jpg|jpeg|png|webp|gif|bmp|tiff|svg|heic|heif|ico)$/i,
         );
 
       if (isZip) {
+        console.log(`File ${i} identified as ZIP`);
         zipFiles.push(file);
       } else if (isImage) {
+        console.log(`File ${i} identified as Image`);
         standardImages.push({
           id: Math.random().toString(36).substring(7) + Date.now(),
           file,
           previewUrl: URL.createObjectURL(file),
         });
+      } else {
+        console.log(`File ${i} unrecognized format. Neither zip nor image.`);
       }
     }
 
@@ -532,6 +540,11 @@ export default function WhatsappSCreate() {
     if (standardImages.length > 0) {
       currentImages = [...currentImages, ...standardImages];
       setImages(currentImages);
+      console.log("Added standard images. New total:", currentImages.length);
+      // Automatically proceed to Canvas view if it's currently on step 1 (Upload view)
+      if (step === 1) {
+         setStep(2);
+      }
     }
 
     for (const zipFile of zipFiles) {
@@ -1017,7 +1030,7 @@ export default function WhatsappSCreate() {
             >
               {/* Workspace */}
               <div className="xl:col-span-8 flex flex-col">
-                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col aspect-[4/5] md:aspect-auto md:h-[600px] lg:h-[700px] shadow-2xl shadow-zinc-200/20 dark:shadow-black/40">
+                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col min-h-[500px] h-[60vh] md:h-[600px] lg:h-[700px] shadow-2xl shadow-zinc-200/20 dark:shadow-black/40">
                   {/* Toolbar */}
                   <div className="px-6 py-4 border-b border-zinc-200/50 dark:border-zinc-800/50 flex flex-wrap items-center justify-between gap-4 bg-white/50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
