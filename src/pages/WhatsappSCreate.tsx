@@ -1252,52 +1252,52 @@ export default function WhatsappSCreate() {
               key="step3"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="max-w-2xl mx-auto mt-12 text-center glass-panel p-12 rounded-[3rem]"
+              className="max-w-2xl mx-auto mt-6 md:mt-12 text-center glass-panel p-6 sm:p-8 md:p-12 rounded-3xl md:rounded-[3rem] w-full"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", bounce: 0.5 }}
-                className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-tr from-emerald-400 to-teal-500 text-white rounded-full mb-8 shadow-2xl shadow-emerald-500/30"
+                className="inline-flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-tr from-emerald-400 to-teal-500 text-white rounded-full mb-6 sm:mb-8 shadow-2xl shadow-emerald-500/30"
               >
-                <CheckCircle2 className="w-14 h-14" />
+                <CheckCircle2 className="w-12 h-12 sm:w-14 sm:h-14" />
               </motion.div>
-              <h2 className="text-5xl font-extrabold mb-4 tracking-tight text-zinc-900 dark:text-white">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 tracking-tight text-zinc-900 dark:text-white">
                 Ready to Share!
               </h2>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-12 text-lg">
+              <p className="text-zinc-500 dark:text-zinc-400 mb-8 sm:mb-12 text-base sm:text-lg">
                 Your stickers are perfectly packaged. Download them and import
                 directly into WhatsApp.
               </p>
 
-              <div className="space-y-4 mb-12 text-left">
+              <div className="space-y-4 mb-8 sm:mb-12 text-left">
                 {generatedPacks.map((pack, i) => (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
                     key={pack.id}
-                    className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow"
+                    className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                        <Briefcase className="w-7 h-7" />
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <Briefcase className="w-6 h-6 sm:w-7 sm:h-7" />
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-zinc-900 dark:text-white">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-white truncate">
                           {pack.name}
                         </h3>
-                        <p className="text-sm font-medium text-zinc-500">
+                        <p className="text-xs sm:text-sm font-medium text-zinc-500 truncate">
                           .wastickers format
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
                       <button
                         onClick={() => downloadPack(pack, false)}
-                        className="flex-1 flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-4 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                        className="w-full sm:w-auto flex flex-1 items-center justify-center gap-2 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-5 sm:px-6 py-3 sm:py-4 rounded-xl font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 text-sm sm:text-base"
                       >
-                        <Download className="w-5 h-5" /> Download Pack
+                        <Download className="w-4 h-4 sm:w-5 sm:h-5" /> Download Pack
                       </button>
                     </div>
                   </motion.div>
